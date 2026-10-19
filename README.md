@@ -22,46 +22,35 @@ spero/
 bun install
 ```
 
-## Database
+## Data (Overpass + local cache)
 
-Local PostGIS via Docker:
+No database to run and no OSM extract to download. Phase 1 reads crowd POIs
+from the public [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API)
+and caches them in a local SQLite file (`bun:sqlite`):
 
 ```bash
-docker compose up -d
-cp core/.env.example core/.env
+cp core/.env.example core/.env   # optional; all defaults work without it
 ```
 
-The database is exposed on `localhost:5432` and its data is kept in the named
-`spero-postgres-data` volume.
+- Endpoints default to `overpass-api.de`, with `overpass.kumi.systems` as a
+  fallback. Override with `OVERPASS_URLS`.
+- The cache lives in `core/data/tiles.sqlite` (gitignored). The map is split
+  into 0.05° tiles that are reused for 30 days, so repeated pans do not hit
+  Overpass.
+- If Overpass is unreachable, stale cached tiles are served instead of failing.
 
-### Hosted Postgres (Neon)
+### Optional: bulk import into PostGIS
 
-A hosted Postgres also works. Put the connection string in `core/.env`, keeping
-`sslmode=require`:
-
-```
-DATABASE_URL=postgresql://user:password@host.neon.tech/neondb?sslmode=require
-```
-
-The import script enables PostGIS (`CREATE EXTENSION IF NOT EXISTS postgis`)
-before it runs osm2pgsql, so no manual extension setup is needed.
-
-## Import OSM data
-
-Install [osm2pgsql](https://osm2pgsql.org/doc/install.html) 2.x and make sure it
-is on `PATH` (or set `OSM2PGSQL_BIN`). Then:
+The older osm2pgsql path is still in the repo but is not used by phase 1. To use
+it, run `docker compose up -d`, put a `DATABASE_URL` in `core/.env`, install
+[osm2pgsql](https://osm2pgsql.org/doc/install.html) 2.x, and run:
 
 ```bash
 bun run db:import
 ```
 
-The script enables PostGIS, downloads the western-zone extract from Geofabrik
-into `core/data/` (gitignored), imports POIs into the `pois` table with the flex
-style in `core/scripts/pois.lua`, and creates the spatial indexes. Use
-`bun run db:import --force` to download a fresh extract.
-
-Re-importing into a database that already has a `pois` table requires dropping
-it first (or recreating the database volume).
+It downloads the western-zone extract into `core/data/` (gitignored), imports
+`pois` with `core/scripts/pois.lua`, and creates the spatial indexes.
 
 ## Web environment
 
@@ -78,12 +67,15 @@ back to the free CARTO light and dark basemaps, so the map works out of the box.
 
 | Method | Route                                                    | Description                        |
 | ------ | -------------------------------------------------------- | ---------------------------------- |
-| GET    | `/health`                                                | API and database health            |
+| GET    | `/health`                                                | API, cache, and Overpass status    |
 | GET    | `/api/hotzones?bbox=minLng,minLat,maxLng,maxLat&cell=250&radius=500` | GeoJSON grid cells with `score` and `breakdown` |
 | GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital` | GeoJSON POIs with `name` and `category` |
 
 `bbox` must span no more than about 15 km in either direction; larger requests
 return `400`.
+
+`/health` reports the cache size and the configured Overpass endpoints. Add
+`?probe=1` to also check whether Overpass is reachable right now.
 
 ## Development
 

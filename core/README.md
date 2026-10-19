@@ -1,6 +1,7 @@
 # @spero/core
 
-Hono API running on Bun, backed by PostGIS.
+Hono API running on Bun. Crowd data comes from the public Overpass API and is
+cached locally in SQLite (`bun:sqlite`); no database server is required.
 
 ## Development
 
@@ -18,45 +19,43 @@ bun run dev
 
 The server listens on `http://localhost:3000` by default. Set `PORT` to change it.
 
-## Database
-
-Local PostGIS via Docker:
+## Data source
 
 ```bash
-docker compose up -d
-cp core/.env.example core/.env
+cp core/.env.example core/.env   # optional; defaults work without it
 ```
 
-A hosted Postgres such as Neon also works. Put its connection string in
-`core/.env` (keep `sslmode=require`); the import script enables the PostGIS
-extension for you.
+- `OVERPASS_URLS` — comma-separated Overpass endpoints, tried in order. Defaults
+  to `overpass-api.de` plus `overpass.kumi.systems`.
+- `OVERPASS_USER_AGENT` — sent with every request. Defaults to `spero/0.1`.
+- `TILE_CACHE_PATH` — SQLite file. Defaults to `core/data/tiles.sqlite`
+  (gitignored).
 
-## Import OSM data
+The map is split into 0.05° tiles. A tile is fetched from Overpass once and
+reused for 30 days (see `src/config/cache.ts`). If Overpass is unreachable,
+stale tiles are served instead of failing the request.
 
-Install [osm2pgsql](https://osm2pgsql.org/doc/install.html) 2.x and make sure it
-is on `PATH` (or set `OSM2PGSQL_BIN`). Then, from the repo root:
+### Optional: bulk import into PostGIS
+
+`scripts/import-osm.ts` is the older osm2pgsql path and is not used by phase 1.
+It needs Docker, `DATABASE_URL` in `core/.env`, and osm2pgsql 2.x on `PATH`:
 
 ```bash
 bun run db:import
 ```
 
-The script downloads the western-zone extract into `core/data/` (gitignored),
-imports `pois` with `scripts/pois.lua`, and creates the indexes needed by the
-scoring queries.
-
-Re-importing over an existing `pois` table requires dropping it first, or
-recreating the database volume with `docker compose down -v`.
-
 ## API
 
 | Method | Route                                                                   | Description                                      |
 | ------ | ----------------------------------------------------------------------- | ------------------------------------------------ |
-| GET    | `/health`                                                               | API and database health                          |
+| GET    | `/health`                                                               | Cache size and Overpass endpoints (`?probe=1` checks reachability) |
 | GET    | `/api/hotzones?bbox=minLng,minLat,maxLng,maxLat&cell=250&radius=500`     | GeoJSON grid cells with `score` and `breakdown`  |
 | GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital`  | GeoJSON POIs with `name` and `category`          |
 
 `bbox` is validated with Zod and must span no more than about 15 km in either
-direction. Category weights and scoring defaults live in `src/config`.
+direction. Category weights, tile settings, and scoring defaults live in
+`src/config`. Grid generation is in `src/lib/grid.ts` and the TypeScript scoring
+in `src/services/scoring.ts`.
 
 ## Entry point
 

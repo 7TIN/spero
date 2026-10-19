@@ -4,121 +4,13 @@ import type {
   HotzoneFeature,
   HotzoneFeatureCollection,
   PoiCategory,
-  PoiFeature,
   PoiFeatureCollection,
 } from "@spero/shared";
-import { HOTZONE_BREAKDOWN_LIMIT, GRID_SRID } from "../config/scoring";
+import { HOTZONE_BREAKDOWN_LIMIT } from "../config/scoring";
 import { CATEGORY_WEIGHTS } from "../config/weights";
-import { sql } from "../db";
-
-const HOTZONES_QUERY = `
-WITH params AS (
-  SELECT
-    ST_Transform(ST_MakeEnvelope($1, $2, $3, $4, 4326), ${GRID_SRID}) AS bbox_metric,
-    $5::double precision AS cell_size,
-    $6::double precision AS radius
-),
-weights AS (
-  SELECT key AS category, value::double precision AS weight
-  FROM jsonb_each_text($7::jsonb)
-),
-grid AS (
-  SELECT
-    row_number() OVER () AS cell_id,
-    cells.geom,
-    ST_Centroid(cells.geom) AS center
-  FROM params
-  CROSS JOIN LATERAL ST_SquareGrid(params.cell_size, params.bbox_metric) AS cells(geom, i, j)
-),
-contrib AS (
-  SELECT
-    grid.cell_id,
-    pois.category,
-    count(*)::int AS poi_count,
-    sum(
-      weights.weight *
-      (1 - ST_Distance(grid.center, ST_Transform(pois.geom, ${GRID_SRID})) / params.radius)
-    ) AS contribution
-  FROM grid
-  CROSS JOIN params
-  JOIN pois
-    ON ST_DWithin(grid.center, ST_Transform(pois.geom, ${GRID_SRID}), params.radius)
-  JOIN weights ON weights.category = pois.category
-  GROUP BY grid.cell_id, pois.category
-),
-scores AS (
-  SELECT cell_id, sum(contribution) AS raw_score
-  FROM contrib
-  GROUP BY cell_id
-  HAVING sum(contribution) > 0
-),
-normalized AS (
-  SELECT
-    cell_id,
-    CASE
-      WHEN max(raw_score) OVER () = min(raw_score) OVER () THEN 100::double precision
-      ELSE (
-        (raw_score - min(raw_score) OVER ()) /
-        (max(raw_score) OVER () - min(raw_score) OVER ()) *
-        100
-      )::double precision
-    END AS score
-  FROM scores
-),
-ranked AS (
-  SELECT
-    cell_id,
-    category,
-    poi_count,
-    contribution,
-    row_number() OVER (
-      PARTITION BY cell_id
-      ORDER BY contribution DESC, category
-    ) AS rank_order
-  FROM contrib
-),
-breakdown AS (
-  SELECT
-    cell_id,
-    jsonb_agg(
-      jsonb_build_object('category', category, 'count', poi_count)
-      ORDER BY contribution DESC, category
-    ) FILTER (WHERE rank_order <= $8) AS breakdown
-  FROM ranked
-  GROUP BY cell_id
-)
-SELECT
-  ST_AsGeoJSON(ST_Transform(grid.geom, 4326))::jsonb AS geometry,
-  round(normalized.score::numeric, 1)::double precision AS score,
-  COALESCE(breakdown.breakdown, '[]'::jsonb) AS breakdown
-FROM grid
-JOIN normalized ON normalized.cell_id = grid.cell_id
-JOIN breakdown ON breakdown.cell_id = grid.cell_id
-ORDER BY normalized.score DESC
-`;
-
-const POIS_QUERY = `
-SELECT
-  ST_AsGeoJSON(pois.geom)::jsonb AS geometry,
-  pois.name,
-  pois.category
-FROM pois
-WHERE pois.geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
-  AND pois.category IN (SELECT jsonb_array_elements_text($5::jsonb))
-ORDER BY pois.category, pois.name
-`;
-
-interface HotzoneRow {
-  geometry: HotzoneFeature["geometry"];
-  score: number;
-  breakdown: HotzoneBreakdownItem[];
-}
-
-interface PoiRow {
-  geometry: PoiFeature["geometry"];
-  name: string | null;
-  category: PoiCategory;
-}
+import { expandBbox, haversineMeters } from "../lib/geo";
+import { buildGrid } from "../lib/grid";
+import { getPoisForBbox } from "./poi-source";
 
 export interface HotzonesParams {
   bbox: Bbox;
@@ -131,33 +23,133 @@ export interface PoisParams {
   categories: PoiCategory[];
 }
 
+interface CategoryContribution {
+  contribution: number;
+  count: number;
+}
+
+interface CellScore {
+  raw: number;
+  categories: Map<PoiCategory, CategoryContribution>;
+}
+
+function roundTo(value: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function topBreakdown(
+  categories: Map<PoiCategory, CategoryContribution>,
+): HotzoneBreakdownItem[] {
+  return [...categories.entries()]
+    .sort((a, b) => {
+      const byContribution = b[1].contribution - a[1].contribution;
+      if (byContribution !== 0) return byContribution;
+      return a[0].localeCompare(b[0]);
+    })
+    .slice(0, HOTZONE_BREAKDOWN_LIMIT)
+    .map(([category, value]) => ({ category, count: value.count }));
+}
+
 export async function getHotzones({
   bbox,
   cell,
   radius,
 }: HotzonesParams): Promise<HotzoneFeatureCollection> {
-  const rows = await sql.unsafe<HotzoneRow[]>(HOTZONES_QUERY, [
-    bbox.minLng,
-    bbox.minLat,
-    bbox.maxLng,
-    bbox.maxLat,
-    cell,
-    radius,
-    JSON.stringify(CATEGORY_WEIGHTS),
-    HOTZONE_BREAKDOWN_LIMIT,
-  ]);
+  // Pad the search area so POIs just outside the view still count for the
+  // cells along its edges.
+  const pois = await getPoisForBbox(expandBbox(bbox, radius));
+  if (pois.length === 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
 
-  return {
-    type: "FeatureCollection",
-    features: rows.map((row) => ({
+  const grid = buildGrid(bbox, cell);
+  const radiusCells = Math.ceil(radius / cell) + 1;
+  const scores = new Map<number, CellScore>();
+
+  // Walk each POI outwards into the cells it can influence. This is far
+  // cheaper than checking every cell against every POI.
+  for (const poi of pois) {
+    const weight = CATEGORY_WEIGHTS[poi.category];
+    const baseColumn = Math.floor((poi.lng - bbox.minLng) / grid.lngStep);
+    const baseRow = Math.floor((poi.lat - bbox.minLat) / grid.latStep);
+
+    for (
+      let row = baseRow - radiusCells;
+      row <= baseRow + radiusCells;
+      row += 1
+    ) {
+      for (
+        let column = baseColumn - radiusCells;
+        column <= baseColumn + radiusCells;
+        column += 1
+      ) {
+        const cell = grid.cellAt(column, row);
+        if (!cell) continue;
+
+        const distance = haversineMeters(
+          cell.centerLng,
+          cell.centerLat,
+          poi.lng,
+          poi.lat,
+        );
+        if (distance > radius) continue;
+
+        const contribution = weight * (1 - distance / radius);
+        if (contribution <= 0) continue;
+
+        const entry = scores.get(cell.index) ?? {
+          raw: 0,
+          categories: new Map<PoiCategory, CategoryContribution>(),
+        };
+
+        entry.raw += contribution;
+
+        const categoryEntry = entry.categories.get(poi.category) ?? {
+          contribution: 0,
+          count: 0,
+        };
+        categoryEntry.contribution += contribution;
+        categoryEntry.count += 1;
+        entry.categories.set(poi.category, categoryEntry);
+
+        scores.set(cell.index, entry);
+      }
+    }
+  }
+
+  if (scores.size === 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
+
+  const rawValues = [...scores.values()].map((entry) => entry.raw);
+  const min = Math.min(...rawValues);
+  const max = Math.max(...rawValues);
+
+  const features: HotzoneFeature[] = [];
+
+  for (const [index, entry] of scores) {
+    const cell = grid.cells[index];
+    if (!cell) continue;
+
+    const score = max === min ? 100 : ((entry.raw - min) / (max - min)) * 100;
+
+    features.push({
       type: "Feature",
-      geometry: row.geometry,
-      properties: {
-        score: row.score,
-        breakdown: row.breakdown,
+      geometry: {
+        type: "Polygon",
+        coordinates: [cell.ring],
       },
-    })),
-  };
+      properties: {
+        score: roundTo(score, 1),
+        breakdown: topBreakdown(entry.categories),
+      },
+    });
+  }
+
+  features.sort((a, b) => b.properties.score - a.properties.score);
+
+  return { type: "FeatureCollection", features };
 }
 
 export async function getPois({
@@ -168,23 +160,23 @@ export async function getPois({
     return { type: "FeatureCollection", features: [] };
   }
 
-  const rows = await sql.unsafe<PoiRow[]>(POIS_QUERY, [
-    bbox.minLng,
-    bbox.minLat,
-    bbox.maxLng,
-    bbox.maxLat,
-    JSON.stringify(categories),
-  ]);
+  const allowed = new Set(categories);
+  const pois = await getPoisForBbox(bbox);
 
   return {
     type: "FeatureCollection",
-    features: rows.map((row) => ({
-      type: "Feature",
-      geometry: row.geometry,
-      properties: {
-        name: row.name,
-        category: row.category,
-      },
-    })),
+    features: pois
+      .filter((poi) => allowed.has(poi.category))
+      .map((poi) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [poi.lng, poi.lat],
+        },
+        properties: {
+          name: poi.name,
+          category: poi.category,
+        },
+      })),
   };
 }

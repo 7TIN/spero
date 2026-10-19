@@ -1,6 +1,3 @@
-/** Metric projection used for grid generation and distance math. */
-export const GRID_SRID = 32643;
-
 export const DEFAULT_CELL_SIZE_M = 250;
 export const MIN_CELL_SIZE_M = 100;
 export const MAX_CELL_SIZE_M = 1000;
