@@ -22,7 +22,7 @@ export const MOVE_DEBOUNCE_MS = 400;
 export const POI_MIN_ZOOM = 14;
 
 export const DEFAULT_CELL_SIZE_M = 250;
-export const MIN_CELL_SIZE_M = 100;
+export const MIN_CELL_SIZE_M = 50;
 export const MAX_CELL_SIZE_M = 1000;
 export const CELL_SIZE_STEP_M = 50;
 

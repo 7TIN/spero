@@ -1,5 +1,7 @@
 export const DEFAULT_CELL_SIZE_M = 250;
-export const MIN_CELL_SIZE_M = 100;
+/** Finest grid the API accepts. Kept small so a fully zoomed-in view can
+ *  still be scored at a useful granularity; the UI default stays 250 m. */
+export const MIN_CELL_SIZE_M = 50;
 export const MAX_CELL_SIZE_M = 1000;
 
 export const DEFAULT_RADIUS_M = 500;
