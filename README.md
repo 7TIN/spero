@@ -32,8 +32,9 @@ and caches them in a local SQLite file (`bun:sqlite`):
 cp core/.env.example core/.env   # optional; all defaults work without it
 ```
 
-- Endpoints default to `overpass-api.de`, with `overpass.kumi.systems` and
-  `overpass.private.coffee` as fallbacks. Override with `OVERPASS_URLS`.
+- Endpoints default to `overpass-api.de`, with five other global mirrors
+  (`kumi.systems`, `private.coffee`, `osm.jp`, `openstreetmap.ru`,
+  `nchc.org.tw`) as fallbacks. Override with `OVERPASS_URLS`.
 - The cache lives in `core/data/tiles.sqlite` (gitignored). The map is split
   into 0.05° tiles that are reused for 30 days, so repeated pans do not hit
   Overpass.

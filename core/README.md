@@ -26,7 +26,10 @@ cp core/.env.example core/.env   # optional; defaults work without it
 ```
 
 - `OVERPASS_URLS` — comma-separated Overpass endpoints, tried in order. Defaults
-  to `overpass-api.de` plus `overpass.kumi.systems` and `overpass.private.coffee`.
+  to `overpass-api.de` plus five global mirrors (`kumi.systems`,
+  `private.coffee`, `osm.jp`, `openstreetmap.ru`, `nchc.org.tw`). Do not add
+  region-limited mirrors such as `overpass.osm.ch`; their empty responses would
+  be cached as empty tiles.
 - `OVERPASS_USER_AGENT` — sent with every request. Defaults to `spero/0.1`.
 - `TILE_CACHE_PATH` — SQLite file. Defaults to `core/data/tiles.sqlite`
   (gitignored).
