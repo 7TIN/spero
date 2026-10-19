@@ -17,12 +17,14 @@ import {
   LIGHT_STYLE_URL,
   MAX_MAP_ZOOM,
   MIN_MAP_ZOOM,
+  OSM_STYLE,
+  type BasemapId,
 } from "./constants";
 import { HotzoneLayer } from "./HotzoneLayer";
 import { PoiLayer } from "./PoiLayer";
 
 interface MapViewProps {
-  isDark: boolean;
+  basemap: BasemapId;
   hotzones?: HotzoneFeatureCollection;
   pois?: PoiFeatureCollection;
   onViewportChange: (viewport: { bbox: Bbox; zoom: number }) => void;
@@ -54,7 +56,7 @@ function parseBreakdown(value: unknown): HotzoneBreakdownItem[] {
 }
 
 export function MapView({
-  isDark,
+  basemap,
   hotzones,
   pois,
   onViewportChange,
@@ -82,7 +84,13 @@ export function MapView({
     <Map
       ref={mapRef}
       initialViewState={{ ...DEFAULT_CENTER, zoom: DEFAULT_ZOOM }}
-      mapStyle={isDark ? DARK_STYLE_URL : LIGHT_STYLE_URL}
+      mapStyle={
+        basemap === "osm"
+          ? OSM_STYLE
+          : basemap === "dark"
+            ? DARK_STYLE_URL
+            : LIGHT_STYLE_URL
+      }
       minZoom={MIN_MAP_ZOOM}
       maxZoom={MAX_MAP_ZOOM}
       interactiveLayerIds={["hotzones-fill"]}

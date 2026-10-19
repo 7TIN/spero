@@ -12,6 +12,7 @@ import {
 import { Slider } from "../../components/ui/slider";
 import { Switch } from "../../components/ui/switch";
 import {
+  BASEMAPS,
   CATEGORY_COLORS,
   CATEGORY_LABELS,
   CELL_SIZE_STEP_M,
@@ -22,6 +23,7 @@ import {
   MIN_RADIUS_M,
   POI_MIN_ZOOM,
   RADIUS_STEP_M,
+  type BasemapId,
 } from "./constants";
 
 const legendGradient = `linear-gradient(90deg, ${HOTZONE_COLOR_STOPS.map(
@@ -31,6 +33,8 @@ const legendGradient = `linear-gradient(90deg, ${HOTZONE_COLOR_STOPS.map(
 interface ControlPanelProps {
   isDark: boolean;
   onToggleTheme: () => void;
+  basemap: BasemapId;
+  onBasemapChange: (value: BasemapId) => void;
   cellSize: number;
   radius: number;
   onCellSizeChange: (value: number) => void;
@@ -46,6 +50,8 @@ interface ControlPanelProps {
 export function ControlPanel({
   isDark,
   onToggleTheme,
+  basemap,
+  onBasemapChange,
   cellSize,
   radius,
   onCellSizeChange,
@@ -96,6 +102,23 @@ export function ControlPanel({
             {error}
           </p>
         )}
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Basemap</p>
+          <div className="grid grid-cols-3 gap-2">
+            {BASEMAPS.map((option) => (
+              <Button
+                key={option.id}
+                size="sm"
+                variant={basemap === option.id ? "default" : "outline"}
+                aria-pressed={basemap === option.id}
+                onClick={() => onBasemapChange(option.id)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
 
         <div className="space-y-3">
           <div className="space-y-2">

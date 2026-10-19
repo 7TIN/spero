@@ -77,6 +77,11 @@ cp web/.env.example web/.env
 `VITE_MAP_STYLE_URL` (and the optional `VITE_MAP_STYLE_URL_DARK`) can point at a
 MapTiler or Stadia style with your key. When they are not set, the app falls
 back to the free CARTO light and dark basemaps, so the map works out of the box.
+The panel's **Basemap** switch also offers the classic OpenStreetMap raster
+tiles (the standard OSM map with parks, water, and land use). It uses the public
+`tile.openstreetmap.org` server, which is suitable for development and light
+use; see the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
+before deploying.
 `VITE_API_URL` defaults to `http://localhost:3000`.
 
 ## API

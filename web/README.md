@@ -28,7 +28,10 @@ cp .env.example .env
 
 `VITE_MAP_STYLE_URL` can point at a MapTiler or Stadia style with your key.
 `VITE_MAP_STYLE_URL_DARK` is optional. Without either, the app uses the free
-CARTO light and dark basemaps.
+CARTO light and dark basemaps. The panel's **Basemap** switch also offers the
+classic OpenStreetMap raster tiles (`tile.openstreetmap.org`), which is fine for
+development and light use but subject to the
+[tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
 
 ## Map
 

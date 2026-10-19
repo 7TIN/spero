@@ -1,3 +1,4 @@
+import type { StyleSpecification } from "maplibre-gl";
 import type { PoiCategory } from "@spero/shared";
 
 /** Default map centre (Pune) and zoom. Change these to move the app. */
@@ -41,6 +42,36 @@ export const LIGHT_STYLE_URL =
 export const DARK_STYLE_URL =
   import.meta.env.VITE_MAP_STYLE_URL_DARK ??
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+
+/**
+ * Classic OpenStreetMap raster tiles, built as a local style so the basemap
+ * still works if a vector style host is unreachable.
+ *
+ * The public tile server is fine for development and light use. Read the
+ * usage policy before deploying: https://operations.osmfoundation.org/policies/tiles/
+ */
+export const OSM_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+  },
+  layers: [{ id: "osm", type: "raster", source: "osm" }],
+};
+
+export const BASEMAPS = [
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+  { id: "osm", label: "OSM" },
+] as const;
+
+export type BasemapId = (typeof BASEMAPS)[number]["id"];
 
 /** Shared by the fill layer and the legend. */
 export const HOTZONE_COLOR_STOPS = [

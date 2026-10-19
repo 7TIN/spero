@@ -8,6 +8,7 @@ import {
   DEFAULT_ZOOM,
   MOVE_DEBOUNCE_MS,
   POI_MIN_ZOOM,
+  type BasemapId,
 } from "./constants";
 import { MapView } from "./MapView";
 import type { MapViewport } from "./types";
@@ -25,6 +26,10 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const [enabledCategories, setEnabledCategories] = useState<PoiCategory[]>([
     ...POI_CATEGORIES,
   ]);
+  // Until the user picks a basemap explicitly, follow the app theme.
+  const [basemapChoice, setBasemapChoice] = useState<BasemapId | null>(null);
+  const basemap: BasemapId =
+    basemapChoice ?? (isDark ? "dark" : "light");
   const [viewport, setViewport] = useState<MapViewport>({
     bbox: null,
     zoom: DEFAULT_ZOOM,
@@ -68,7 +73,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   return (
     <div className="relative h-svh w-full overflow-hidden bg-background">
       <MapView
-        isDark={isDark}
+        basemap={basemap}
         hotzones={hotzones.data}
         pois={pois.data}
         onViewportChange={handleViewportChange}
@@ -76,6 +81,8 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
       <ControlPanel
         isDark={isDark}
         onToggleTheme={onToggleTheme}
+        basemap={basemap}
+        onBasemapChange={setBasemapChoice}
         cellSize={cellSize}
         radius={radius}
         onCellSizeChange={setCellSize}
