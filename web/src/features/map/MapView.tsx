@@ -1,15 +1,11 @@
 import { useCallback, useRef } from "react";
-import Map, { NavigationControl, Popup, type MapRef } from "react-map-gl/maplibre";
+import Map, { NavigationControl, type MapRef } from "react-map-gl/maplibre";
 import type {
   Bbox,
-  HotzoneBreakdownItem,
   HotzoneFeatureCollection,
   PoiFeatureCollection,
 } from "@spero/shared";
-import { Badge } from "../../components/ui/badge";
 import {
-  CATEGORY_COLORS,
-  CATEGORY_LABELS,
   DARK_STYLE_URL,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
@@ -27,7 +23,6 @@ interface MapViewProps {
   basemap: BasemapId;
   hotzones?: HotzoneFeatureCollection;
   pois?: PoiFeatureCollection;
-  selected: SelectedCell | null;
   onSelect: (cell: SelectedCell | null) => void;
   onViewportChange: (viewport: { bbox: Bbox; zoom: number }) => void;
 }
@@ -61,25 +56,10 @@ function ringCenter(
   return { lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2 };
 }
 
-function parseBreakdown(value: unknown): HotzoneBreakdownItem[] {
-  let parsed: unknown = value;
-
-  if (typeof parsed === "string") {
-    try {
-      parsed = JSON.parse(parsed);
-    } catch {
-      return [];
-    }
-  }
-
-  return Array.isArray(parsed) ? (parsed as HotzoneBreakdownItem[]) : [];
-}
-
 export function MapView({
   basemap,
   hotzones,
   pois,
-  selected,
   onSelect,
   onViewportChange,
 }: MapViewProps) {
@@ -134,61 +114,13 @@ export function MapView({
         onSelect({
           centerLng: center.lng,
           centerLat: center.lat,
-          properties: {
-            score: parseScore(feature.properties?.score),
-            breakdown: parseBreakdown(feature.properties?.breakdown),
-          },
+          score: parseScore(feature.properties?.score),
         });
       }}
     >
       <NavigationControl position="bottom-right" />
       <HotzoneLayer data={hotzones} />
       <PoiLayer data={pois} />
-      {selected && (
-        <Popup
-          longitude={selected.centerLng}
-          latitude={selected.centerLat}
-          closeButton
-          closeOnClick={false}
-          maxWidth="18rem"
-          onClose={() => onSelect(null)}
-        >
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Hot zone
-              </span>
-              <Badge className="border-transparent bg-primary text-primary-foreground">
-                {selected.properties.score.toFixed(0)}
-              </Badge>
-            </div>
-
-            {selected.properties.breakdown.length > 0 ? (
-              <ul className="space-y-1">
-                {selected.properties.breakdown.map((item) => (
-                  <li
-                    key={item.category}
-                    className="flex items-center justify-between gap-3 text-xs"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: CATEGORY_COLORS[item.category] }}
-                      />
-                      {CATEGORY_LABELS[item.category]}
-                    </span>
-                    <span className="text-muted-foreground">×{item.count}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No contributing POIs in range.
-              </p>
-            )}
-          </div>
-        </Popup>
-      )}
     </Map>
   );
 }

@@ -221,33 +221,9 @@
 }
 
 /*
- * These rules stay unlayered on purpose. maplibre-gl.css is plain, unlayered
- * CSS, and unlayered rules beat anything inside a cascade layer, so keeping
- * these overrides in @layer components let MapLibre's white popup background
- * win over bg-popover (white text on white in dark mode).
+ * maplibre-gl.css is plain, unlayered CSS, so these overrides stay unlayered
+ * too: rules inside @layer components would lose to it.
  */
-.maplibregl-popup .maplibregl-popup-content {
-  @apply rounded-lg border bg-popover p-3 text-popover-foreground shadow-luxe;
-  /* Reserve room for the enlarged close button. */
-  padding-right: 2rem;
-}
-
-.maplibregl-popup-tip {
-  display: none;
-}
-
-.maplibregl-popup .maplibregl-popup-close-button {
-  @apply text-muted-foreground hover:text-foreground;
-  display: flex;
-  width: 2rem;
-  height: 2rem;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
 .maplibregl-ctrl-group {
   @apply border bg-card text-foreground shadow-sheen;
 }

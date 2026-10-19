@@ -1,4 +1,4 @@
-import type { Bbox, HotzoneProperties } from "@spero/shared";
+import type { Bbox } from "@spero/shared";
 
 export interface MapViewport {
   bbox: Bbox | null;
@@ -9,5 +9,5 @@ export interface MapViewport {
 export interface SelectedCell {
   centerLng: number;
   centerLat: number;
-  properties: HotzoneProperties;
+  score: number;
 }

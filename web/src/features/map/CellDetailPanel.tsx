@@ -102,7 +102,7 @@ export function CellDetailPanel({
         </div>
         <div className="flex items-center gap-1">
           <Badge className="border-transparent bg-primary text-primary-foreground">
-            {cell.properties.score.toFixed(0)}
+            {cell.score.toFixed(0)}
           </Badge>
           <Button
             variant="ghost"

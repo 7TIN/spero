@@ -90,7 +90,6 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         basemap={basemap}
         hotzones={hotzones.data}
         pois={pois.data}
-        selected={selectedCell}
         onSelect={setSelectedCell}
         onViewportChange={handleViewportChange}
       />
