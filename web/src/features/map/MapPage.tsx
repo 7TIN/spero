@@ -35,7 +35,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const hotzones = useHotzones(debouncedViewport.bbox, cellSize, radius);
 
   const poisEnabled =
-    viewport.zoom >= POI_MIN_ZOOM && enabledCategories.length > 0;
+    debouncedViewport.zoom >= POI_MIN_ZOOM && enabledCategories.length > 0;
   const pois = usePois(
     debouncedViewport.bbox,
     enabledCategories,
