@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: spero-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: spero
+      POSTGRES_USER: spero
+      POSTGRES_PASSWORD: spero
+    ports:
+      - "5432:5432"
+    volumes:
+      - spero-postgres-data:/var/lib/postgresql/data
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spero -d spero"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  spero-postgres-data:

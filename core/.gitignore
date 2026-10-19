@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Imported OSM data
+data/
+
 # Environment variables
 .env
 .env.*

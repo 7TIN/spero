@@ -21,6 +21,18 @@ spero/
 bun install
 ```
 
+## Database
+
+Start PostGIS and create the local environment file:
+
+```bash
+docker compose up -d
+cp core/.env.example core/.env
+```
+
+The database is exposed on `localhost:5432` and its data is kept in the named
+`spero-postgres-data` volume.
+
 ## Development
 
 ```bash
