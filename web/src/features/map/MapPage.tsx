@@ -12,7 +12,7 @@ import {
 } from "./constants";
 import { CellDetailPanel } from "./CellDetailPanel";
 import { MapView } from "./MapView";
-import type { MapViewport, SelectedCell } from "./types";
+import type { MapViewport, SelectedCell, SelectionMode } from "./types";
 import { useHotzones } from "./useHotzones";
 import { usePois } from "./usePois";
 
@@ -35,11 +35,22 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     bbox: null,
     zoom: DEFAULT_ZOOM,
   });
+  const [mode, setMode] = useState<SelectionMode>("normal");
   const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [lockedCell, setLockedCell] = useState<SelectedCell | null>(null);
+  const locked = lockedCell !== null;
 
   const debouncedViewport = useDebouncedValue(viewport, MOVE_DEBOUNCE_MS);
 
-  const hotzones = useHotzones(debouncedViewport.bbox, cellSize, radius);
+  // Locking pins the scored grid to the outlined cell, so zooming and panning
+  // no longer change the cells or bring in neighbours. Selecting a finer cell
+  // inside the lock only updates the panel, not the locked area.
+  const hotzones = useHotzones(
+    lockedCell?.bounds ?? debouncedViewport.bbox,
+    cellSize,
+    radius,
+  );
 
   const poisEnabled =
     debouncedViewport.zoom >= POI_MIN_ZOOM && enabledCategories.length > 0;
@@ -65,17 +76,65 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     [],
   );
 
-  // Changing the cell size or radius re-scores every cell, so the open cell
-  // would show stale numbers; close it instead.
-  const handleCellSizeChange = useCallback((value: number) => {
-    setCellSize(value);
-    setSelectedCell(null);
+  const handleSelect = useCallback((cell: SelectedCell) => {
+    setSelectedCell(cell);
+    setPanelOpen(true);
   }, []);
 
-  const handleRadiusChange = useCallback((value: number) => {
-    setRadius(value);
+  // Moving the map makes the open panel's numbers stale. In selection mode the
+  // outline stays so the user keeps their bearings; normal mode behaves as before.
+  const handleMoveStart = useCallback(() => {
+    setPanelOpen(false);
+    if (mode !== "selection") {
+      setSelectedCell(null);
+      setLockedCell(null);
+    }
+  }, [mode]);
+
+  const handlePanelClose = useCallback(() => {
+    setPanelOpen(false);
+    if (mode !== "selection") {
+      setSelectedCell(null);
+      setLockedCell(null);
+    }
+  }, [mode]);
+
+  const handleClearSelection = useCallback(() => {
     setSelectedCell(null);
+    setPanelOpen(false);
+    setLockedCell(null);
   }, []);
+
+  const handleToggleLock = useCallback(() => {
+    setLockedCell((current) => (current ? null : selectedCell));
+  }, [selectedCell]);
+
+  const handleModeChange = useCallback((next: SelectionMode) => {
+    setMode(next);
+    if (next === "normal") {
+      setSelectedCell(null);
+      setPanelOpen(false);
+      setLockedCell(null);
+    }
+  }, []);
+
+  const handleCellSizeChange = useCallback(
+    (value: number) => {
+      setCellSize(value);
+      setPanelOpen(false);
+      if (mode !== "selection") setSelectedCell(null);
+    },
+    [mode],
+  );
+
+  const handleRadiusChange = useCallback(
+    (value: number) => {
+      setRadius(value);
+      setPanelOpen(false);
+      if (mode !== "selection") setSelectedCell(null);
+    },
+    [mode],
+  );
 
   const error =
     hotzones.error instanceof Error
@@ -90,19 +149,28 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         basemap={basemap}
         hotzones={hotzones.data}
         pois={pois.data}
-        onSelect={setSelectedCell}
+        outlineCell={lockedCell ?? selectedCell}
+        selectionMode={mode}
+        locked={locked}
+        onSelect={handleSelect}
+        onClearSelection={handleClearSelection}
+        onToggleLock={handleToggleLock}
+        onMoveStart={handleMoveStart}
         onViewportChange={handleViewportChange}
       />
       <CellDetailPanel
-        cell={selectedCell}
+        cell={panelOpen ? selectedCell : null}
         radius={radius}
-        onClose={() => setSelectedCell(null)}
+        onClose={handlePanelClose}
       />
       <ControlPanel
         isDark={isDark}
         onToggleTheme={onToggleTheme}
         basemap={basemap}
         onBasemapChange={setBasemapChoice}
+        mode={mode}
+        onModeChange={handleModeChange}
+        locked={locked}
         cellSize={cellSize}
         radius={radius}
         onCellSizeChange={handleCellSizeChange}

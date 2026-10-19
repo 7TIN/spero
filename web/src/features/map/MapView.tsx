@@ -17,13 +17,20 @@ import {
 } from "./constants";
 import { HotzoneLayer } from "./HotzoneLayer";
 import { PoiLayer } from "./PoiLayer";
-import type { SelectedCell } from "./types";
+import { SelectedCellOverlay } from "./SelectedCellOverlay";
+import type { SelectedCell, SelectionMode } from "./types";
 
 interface MapViewProps {
   basemap: BasemapId;
   hotzones?: HotzoneFeatureCollection;
   pois?: PoiFeatureCollection;
-  onSelect: (cell: SelectedCell | null) => void;
+  outlineCell: SelectedCell | null;
+  selectionMode: SelectionMode;
+  locked: boolean;
+  onSelect: (cell: SelectedCell) => void;
+  onClearSelection: () => void;
+  onToggleLock: () => void;
+  onMoveStart: () => void;
   onViewportChange: (viewport: { bbox: Bbox; zoom: number }) => void;
 }
 
@@ -32,10 +39,8 @@ function parseScore(value: unknown): number {
   return Number.isFinite(score) ? score : 0;
 }
 
-/** Centre of a rectangular cell ring, which is where the score is measured. */
-function ringCenter(
-  ring: ReadonlyArray<ReadonlyArray<number>>,
-): { lng: number; lat: number } | null {
+/** Bounds of a rectangular cell ring, used for the outline and the lock. */
+function ringBounds(ring: ReadonlyArray<ReadonlyArray<number>>): Bbox | null {
   let minLng = Number.POSITIVE_INFINITY;
   let minLat = Number.POSITIVE_INFINITY;
   let maxLng = Number.NEGATIVE_INFINITY;
@@ -53,14 +58,20 @@ function ringCenter(
 
   if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) return null;
 
-  return { lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2 };
+  return { minLng, minLat, maxLng, maxLat };
 }
 
 export function MapView({
   basemap,
   hotzones,
   pois,
+  outlineCell,
+  selectionMode,
+  locked,
   onSelect,
+  onClearSelection,
+  onToggleLock,
+  onMoveStart,
   onViewportChange,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
@@ -81,6 +92,8 @@ export function MapView({
     });
   }, [onViewportChange]);
 
+  const showOutline = selectionMode === "selection" && outlineCell !== null;
+
   return (
     <Map
       ref={mapRef}
@@ -97,8 +110,16 @@ export function MapView({
       interactiveLayerIds={["hotzones-fill"]}
       onLoad={reportViewport}
       onMoveEnd={reportViewport}
-      onMoveStart={() => onSelect(null)}
+      onMoveStart={onMoveStart}
       onClick={(event) => {
+        // The outline's lock and close buttons sit inside MapLibre's canvas
+        // container, so a click on them also reaches the map. Ignore those
+        // clicks instead of selecting whatever cell sits under the button.
+        const target = event.originalEvent.target;
+        if (target instanceof Element && target.closest(".maplibregl-marker")) {
+          return;
+        }
+
         const feature = event.features?.find(
           (candidate) => candidate.layer?.id === "hotzones-fill",
         );
@@ -108,19 +129,29 @@ export function MapView({
           feature.geometry?.type === "Polygon"
             ? feature.geometry.coordinates[0]
             : null;
-        const center = ring ? ringCenter(ring) : null;
-        if (!center) return;
+        const bounds = ring ? ringBounds(ring) : null;
+        if (!bounds) return;
 
         onSelect({
-          centerLng: center.lng,
-          centerLat: center.lat,
+          centerLng: (bounds.minLng + bounds.maxLng) / 2,
+          centerLat: (bounds.minLat + bounds.maxLat) / 2,
           score: parseScore(feature.properties?.score),
+          bounds,
         });
       }}
     >
       <NavigationControl position="bottom-right" />
       <HotzoneLayer data={hotzones} />
       <PoiLayer data={pois} />
+      {showOutline && outlineCell && (
+        <SelectedCellOverlay
+          cell={outlineCell}
+          locked={locked}
+          color={basemap === "dark" ? "#f8fafc" : "#0f172a"}
+          onClear={onClearSelection}
+          onToggleLock={onToggleLock}
+        />
+      )}
     </Map>
   );
 }

@@ -10,4 +10,12 @@ export interface SelectedCell {
   centerLng: number;
   centerLat: number;
   score: number;
+  /** Geographic bounds of the cell, used for the persistent dotted outline. */
+  bounds: Bbox;
 }
+
+/**
+ * Normal keeps the map as it is. Selection keeps a clicked cell outlined so it
+ * stays recognisable while the grid around it is re-scored.
+ */
+export type SelectionMode = "normal" | "selection";

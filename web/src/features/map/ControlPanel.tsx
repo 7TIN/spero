@@ -25,6 +25,7 @@ import {
   RADIUS_STEP_M,
   type BasemapId,
 } from "./constants";
+import type { SelectionMode } from "./types";
 
 const legendGradient = `linear-gradient(90deg, ${HOTZONE_COLOR_STOPS.map(
   (stop) => `${stop.color} ${stop.score}%`,
@@ -35,6 +36,9 @@ interface ControlPanelProps {
   onToggleTheme: () => void;
   basemap: BasemapId;
   onBasemapChange: (value: BasemapId) => void;
+  mode: SelectionMode;
+  onModeChange: (value: SelectionMode) => void;
+  locked: boolean;
   cellSize: number;
   radius: number;
   onCellSizeChange: (value: number) => void;
@@ -52,6 +56,9 @@ export function ControlPanel({
   onToggleTheme,
   basemap,
   onBasemapChange,
+  mode,
+  onModeChange,
+  locked,
   cellSize,
   radius,
   onCellSizeChange,
@@ -102,6 +109,35 @@ export function ControlPanel({
             {error}
           </p>
         )}
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Mode</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant={mode === "normal" ? "default" : "outline"}
+              aria-pressed={mode === "normal"}
+              onClick={() => onModeChange("normal")}
+            >
+              Normal
+            </Button>
+            <Button
+              size="sm"
+              variant={mode === "selection" ? "default" : "outline"}
+              aria-pressed={mode === "selection"}
+              onClick={() => onModeChange("selection")}
+            >
+              Selection
+            </Button>
+          </div>
+          {mode === "selection" && (
+            <p className="text-xs text-muted-foreground">
+              {locked
+                ? "Locked: only the outlined cell is scored. Lower the cell size to see finer cells inside it."
+                : "Click a cell to keep its dotted outline. The lock scores only that cell."}
+            </p>
+          )}
+        </div>
 
         <div className="space-y-2">
           <p className="text-sm font-medium">Basemap</p>
