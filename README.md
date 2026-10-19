@@ -33,6 +33,23 @@ cp core/.env.example core/.env
 The database is exposed on `localhost:5432` and its data is kept in the named
 `spero-postgres-data` volume.
 
+## Import OSM data
+
+Install [osm2pgsql](https://osm2pgsql.org/doc/install.html) 2.x and make sure it
+is on `PATH` (or set `OSM2PGSQL_BIN`). Then:
+
+```bash
+bun run db:import
+```
+
+The script downloads `maharashtra-latest.osm.pbf` from Geofabrik into
+`core/data/` (gitignored), imports POIs into the `pois` table with the flex
+style in `core/scripts/pois.lua`, and creates the spatial indexes. Use
+`bun run db:import --force` to download a fresh extract.
+
+Re-importing into a database that already has a `pois` table requires dropping
+it first (or recreating the database volume).
+
 ## Development
 
 ```bash

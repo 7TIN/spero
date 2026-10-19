@@ -5,5 +5,5 @@
     "jsxImportSource": "hono/jsx",
     "types": ["bun"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }
