@@ -123,7 +123,11 @@ export function CellDetailPanel({
           disabled={totalPlaces === 0}
           onClick={handleCopy}
         >
-          {copied ? <Check /> : <Copy />}
+          {copied ? (
+            <Check className="size-3.5" />
+          ) : (
+            <Copy className="size-3.5" />
+          )}
           {copied ? "Copied" : "Copy names"}
         </Button>
       </div>

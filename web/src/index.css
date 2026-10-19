@@ -228,6 +228,8 @@
  */
 .maplibregl-popup .maplibregl-popup-content {
   @apply rounded-lg border bg-popover p-3 text-popover-foreground shadow-luxe;
+  /* Reserve room for the enlarged close button. */
+  padding-right: 2rem;
 }
 
 .maplibregl-popup-tip {
@@ -236,6 +238,14 @@
 
 .maplibregl-popup .maplibregl-popup-close-button {
   @apply text-muted-foreground hover:text-foreground;
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .maplibregl-ctrl-group {
