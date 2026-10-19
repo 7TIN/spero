@@ -10,8 +10,9 @@ import {
   POI_MIN_ZOOM,
   type BasemapId,
 } from "./constants";
+import { CellDetailPanel } from "./CellDetailPanel";
 import { MapView } from "./MapView";
-import type { MapViewport } from "./types";
+import type { MapViewport, SelectedCell } from "./types";
 import { useHotzones } from "./useHotzones";
 import { usePois } from "./usePois";
 
@@ -34,6 +35,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     bbox: null,
     zoom: DEFAULT_ZOOM,
   });
+  const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null);
 
   const debouncedViewport = useDebouncedValue(viewport, MOVE_DEBOUNCE_MS);
 
@@ -63,6 +65,18 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     [],
   );
 
+  // Changing the cell size or radius re-scores every cell, so the open cell
+  // would show stale numbers; close it instead.
+  const handleCellSizeChange = useCallback((value: number) => {
+    setCellSize(value);
+    setSelectedCell(null);
+  }, []);
+
+  const handleRadiusChange = useCallback((value: number) => {
+    setRadius(value);
+    setSelectedCell(null);
+  }, []);
+
   const error =
     hotzones.error instanceof Error
       ? hotzones.error.message
@@ -76,7 +90,14 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         basemap={basemap}
         hotzones={hotzones.data}
         pois={pois.data}
+        selected={selectedCell}
+        onSelect={setSelectedCell}
         onViewportChange={handleViewportChange}
+      />
+      <CellDetailPanel
+        cell={selectedCell}
+        radius={radius}
+        onClose={() => setSelectedCell(null)}
       />
       <ControlPanel
         isDark={isDark}
@@ -85,8 +106,8 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         onBasemapChange={setBasemapChoice}
         cellSize={cellSize}
         radius={radius}
-        onCellSizeChange={setCellSize}
-        onRadiusChange={setRadius}
+        onCellSizeChange={handleCellSizeChange}
+        onRadiusChange={handleRadiusChange}
         enabledCategories={enabledCategories}
         onToggleCategory={toggleCategory}
         isFetching={hotzones.isFetching || pois.isFetching}

@@ -1,10 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import Map, { NavigationControl, Popup, type MapRef } from "react-map-gl/maplibre";
 import type {
   Bbox,
   HotzoneBreakdownItem,
   HotzoneFeatureCollection,
-  HotzoneProperties,
   PoiFeatureCollection,
 } from "@spero/shared";
 import { Badge } from "../../components/ui/badge";
@@ -22,23 +21,44 @@ import {
 } from "./constants";
 import { HotzoneLayer } from "./HotzoneLayer";
 import { PoiLayer } from "./PoiLayer";
+import type { SelectedCell } from "./types";
 
 interface MapViewProps {
   basemap: BasemapId;
   hotzones?: HotzoneFeatureCollection;
   pois?: PoiFeatureCollection;
+  selected: SelectedCell | null;
+  onSelect: (cell: SelectedCell | null) => void;
   onViewportChange: (viewport: { bbox: Bbox; zoom: number }) => void;
-}
-
-interface SelectedCell {
-  longitude: number;
-  latitude: number;
-  properties: HotzoneProperties;
 }
 
 function parseScore(value: unknown): number {
   const score = typeof value === "number" ? value : Number(value);
   return Number.isFinite(score) ? score : 0;
+}
+
+/** Centre of a rectangular cell ring, which is where the score is measured. */
+function ringCenter(
+  ring: ReadonlyArray<ReadonlyArray<number>>,
+): { lng: number; lat: number } | null {
+  let minLng = Number.POSITIVE_INFINITY;
+  let minLat = Number.POSITIVE_INFINITY;
+  let maxLng = Number.NEGATIVE_INFINITY;
+  let maxLat = Number.NEGATIVE_INFINITY;
+
+  for (const position of ring) {
+    const lng = position[0];
+    const lat = position[1];
+    if (typeof lng !== "number" || typeof lat !== "number") continue;
+    minLng = Math.min(minLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLng = Math.max(maxLng, lng);
+    maxLat = Math.max(maxLat, lat);
+  }
+
+  if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) return null;
+
+  return { lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2 };
 }
 
 function parseBreakdown(value: unknown): HotzoneBreakdownItem[] {
@@ -59,10 +79,11 @@ export function MapView({
   basemap,
   hotzones,
   pois,
+  selected,
+  onSelect,
   onViewportChange,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
-  const [selected, setSelected] = useState<SelectedCell | null>(null);
 
   const reportViewport = useCallback(() => {
     const map = mapRef.current;
@@ -96,16 +117,23 @@ export function MapView({
       interactiveLayerIds={["hotzones-fill"]}
       onLoad={reportViewport}
       onMoveEnd={reportViewport}
-      onMoveStart={() => setSelected(null)}
+      onMoveStart={() => onSelect(null)}
       onClick={(event) => {
         const feature = event.features?.find(
           (candidate) => candidate.layer?.id === "hotzones-fill",
         );
         if (!feature) return;
 
-        setSelected({
-          longitude: event.lngLat.lng,
-          latitude: event.lngLat.lat,
+        const ring =
+          feature.geometry?.type === "Polygon"
+            ? feature.geometry.coordinates[0]
+            : null;
+        const center = ring ? ringCenter(ring) : null;
+        if (!center) return;
+
+        onSelect({
+          centerLng: center.lng,
+          centerLat: center.lat,
           properties: {
             score: parseScore(feature.properties?.score),
             breakdown: parseBreakdown(feature.properties?.breakdown),
@@ -118,12 +146,12 @@ export function MapView({
       <PoiLayer data={pois} />
       {selected && (
         <Popup
-          longitude={selected.longitude}
-          latitude={selected.latitude}
+          longitude={selected.centerLng}
+          latitude={selected.centerLat}
           closeButton
           closeOnClick={false}
           maxWidth="18rem"
-          onClose={() => setSelected(null)}
+          onClose={() => onSelect(null)}
         >
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">

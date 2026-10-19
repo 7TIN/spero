@@ -220,24 +220,51 @@
   @apply underline decoration-current/30 decoration-1 underline-offset-3 transition-colors hover:decoration-current;
 }
 
-@layer components {
-  .maplibregl-popup-content {
-    @apply rounded-lg border bg-popover p-3 text-popover-foreground shadow-luxe;
-  }
+/*
+ * These rules stay unlayered on purpose. maplibre-gl.css is plain, unlayered
+ * CSS, and unlayered rules beat anything inside a cascade layer, so keeping
+ * these overrides in @layer components let MapLibre's white popup background
+ * win over bg-popover (white text on white in dark mode).
+ */
+.maplibregl-popup .maplibregl-popup-content {
+  @apply rounded-lg border bg-popover p-3 text-popover-foreground shadow-luxe;
+}
 
-  .maplibregl-popup-tip {
-    display: none;
-  }
+.maplibregl-popup-tip {
+  display: none;
+}
 
-  .maplibregl-popup-close-button {
-    @apply text-muted-foreground hover:text-foreground;
-  }
+.maplibregl-popup .maplibregl-popup-close-button {
+  @apply text-muted-foreground hover:text-foreground;
+}
 
-  .maplibregl-ctrl-group {
-    @apply border bg-card text-foreground shadow-sheen;
-  }
+.maplibregl-ctrl-group {
+  @apply border bg-card text-foreground shadow-sheen;
+}
 
-  .dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
-    filter: invert(1);
-  }
+.dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background-color: var(--border);
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ring);
 }

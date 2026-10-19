@@ -41,6 +41,11 @@ TanStack Query, and rendered as a scored fill layer. POIs are shown from zoom
 14 and can be filtered by category in the side panel. Default centre and zoom
 come from `src/features/map/constants.ts`.
 
+Clicking a hot-zone cell opens the cell panel on the left: every place within
+the reach radius of the cell centre, grouped by category, with a button that
+copies the whole list. The panel queries `/api/pois` for the cell's bounds and
+filters by distance, so it needs no extra endpoint.
+
 ## Styling
 
 Tailwind CSS is configured through the `@tailwindcss/vite` plugin in
