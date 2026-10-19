@@ -41,6 +41,17 @@ scoring queries.
 Re-importing over an existing `pois` table requires dropping it first, or
 recreating the database volume with `docker compose down -v`.
 
+## API
+
+| Method | Route                                                                   | Description                                      |
+| ------ | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| GET    | `/health`                                                               | API and database health                          |
+| GET    | `/api/hotzones?bbox=minLng,minLat,maxLng,maxLat&cell=250&radius=500`     | GeoJSON grid cells with `score` and `breakdown`  |
+| GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital`  | GeoJSON POIs with `name` and `category`          |
+
+`bbox` is validated with Zod and must span no more than about 15 km in either
+direction. Category weights and scoring defaults live in `src/config`.
+
 ## Entry point
 
 `src/index.ts` exports the Hono app. Bun serves the app directly in development.

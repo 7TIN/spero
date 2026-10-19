@@ -18,6 +18,26 @@ bun run dev
 
 The app runs at `http://localhost:5173` by default.
 
+## Environment
+
+```bash
+cp .env.example .env
+```
+
+`VITE_API_URL` defaults to `http://localhost:3000`.
+
+`VITE_MAP_STYLE_URL` can point at a MapTiler or Stadia style with your key.
+`VITE_MAP_STYLE_URL_DARK` is optional. Without either, the app uses the free
+CARTO light and dark basemaps.
+
+## Map
+
+The map lives in `src/features/map`. It uses `react-map-gl/maplibre` with
+`maplibre-gl`. Hot zones are fetched on `moveend` (debounced), cached with
+TanStack Query, and rendered as a scored fill layer. POIs are shown from zoom
+14 and can be filtered by category in the side panel. Default centre and zoom
+come from `src/features/map/constants.ts`.
+
 ## Styling
 
 Tailwind CSS is configured through the `@tailwindcss/vite` plugin in

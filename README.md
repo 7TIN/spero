@@ -6,8 +6,9 @@ A Bun workspace monorepo.
 
 ```
 spero/
-├── core/   # @spero/core — Hono API running on Bun
-└── web/    # @spero/web  — React + Vite + Tailwind CSS v4
+├── core/    # @spero/core   — Hono API running on Bun
+├── shared/  # @spero/shared — shared TypeScript types
+└── web/     # @spero/web    — React + Vite + Tailwind CSS v4
 ```
 
 ## Requirements
@@ -50,6 +51,28 @@ style in `core/scripts/pois.lua`, and creates the spatial indexes. Use
 Re-importing into a database that already has a `pois` table requires dropping
 it first (or recreating the database volume).
 
+## Web environment
+
+```bash
+cp web/.env.example web/.env
+```
+
+`VITE_MAP_STYLE_URL` (and the optional `VITE_MAP_STYLE_URL_DARK`) can point at a
+MapTiler or Stadia style with your key. When they are not set, the app falls
+back to the free CARTO light and dark basemaps, so the map works out of the box.
+`VITE_API_URL` defaults to `http://localhost:3000`.
+
+## API
+
+| Method | Route                                                    | Description                        |
+| ------ | -------------------------------------------------------- | ---------------------------------- |
+| GET    | `/health`                                                | API and database health            |
+| GET    | `/api/hotzones?bbox=minLng,minLat,maxLng,maxLat&cell=250&radius=500` | GeoJSON grid cells with `score` and `breakdown` |
+| GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital` | GeoJSON POIs with `name` and `category` |
+
+`bbox` must span no more than about 15 km in either direction; larger requests
+return `400`.
+
 ## Development
 
 ```bash
@@ -68,10 +91,11 @@ bun run lint       # lint every package that defines a lint script
 
 ## Workspace packages
 
-| Package       | Path   | Description                     |
-| ------------- | ------ | ------------------------------- |
-| `@spero/core` | `core` | Hono HTTP API                   |
-| `@spero/web`  | `web`  | React app, Vite, Tailwind CSS   |
+| Package         | Path     | Description                   |
+| --------------- | -------- | ----------------------------- |
+| `@spero/core`   | `core`   | Hono HTTP API                 |
+| `@spero/shared` | `shared` | Shared TypeScript types       |
+| `@spero/web`    | `web`    | React app, Vite, Tailwind CSS |
 
 Packages are linked by Bun workspaces. Depend on one from another with
 `"@spero/core": "workspace:*"`.

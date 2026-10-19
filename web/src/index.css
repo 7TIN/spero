@@ -219,3 +219,25 @@
 @utility link-underline {
   @apply underline decoration-current/30 decoration-1 underline-offset-3 transition-colors hover:decoration-current;
 }
+
+@layer components {
+  .maplibregl-popup-content {
+    @apply rounded-lg border bg-popover p-3 text-popover-foreground shadow-luxe;
+  }
+
+  .maplibregl-popup-tip {
+    display: none;
+  }
+
+  .maplibregl-popup-close-button {
+    @apply text-muted-foreground hover:text-foreground;
+  }
+
+  .maplibregl-ctrl-group {
+    @apply border bg-card text-foreground shadow-sheen;
+  }
+
+  .dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+    filter: invert(1);
+  }
+}
