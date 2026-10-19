@@ -70,6 +70,16 @@ function findOsm2pgsql() {
   return process.env.OSM2PGSQL_BIN ?? Bun.which("osm2pgsql");
 }
 
+async function ensurePostgis(databaseUrl: string) {
+  const sql = new SQL(databaseUrl);
+  try {
+    console.log("Ensuring the PostGIS extension is available...");
+    await sql`CREATE EXTENSION IF NOT EXISTS postgis`;
+  } finally {
+    await sql.close();
+  }
+}
+
 async function createIndexes(databaseUrl: string) {
   const sql = new SQL(databaseUrl);
   try {
@@ -103,6 +113,7 @@ async function main() {
     );
   }
 
+  await ensurePostgis(databaseUrl);
   await downloadExtract();
 
   console.log("Importing POIs with osm2pgsql...");

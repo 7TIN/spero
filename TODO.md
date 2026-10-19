@@ -2,6 +2,7 @@
 
 Ideas deferred beyond Phase 1:
 
+- Phase 2: add Drizzle ORM on Bun.sql (see `docs/phase-2-drizzle.md`).
 - Authentication and per-user saved areas.
 - Business-type logic and competitor analysis.
 - Google Places / other commercial POI providers.

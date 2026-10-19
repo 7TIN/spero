@@ -66,5 +66,8 @@ playwright-report/
 test-results/
 playwright/.cache/
 
+# Local planning docs
+docs/
+
 # Misc
 *.pem

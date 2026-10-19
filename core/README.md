@@ -20,10 +20,16 @@ The server listens on `http://localhost:3000` by default. Set `PORT` to change i
 
 ## Database
 
+Local PostGIS via Docker:
+
 ```bash
 docker compose up -d
 cp core/.env.example core/.env
 ```
+
+A hosted Postgres such as Neon also works. Put its connection string in
+`core/.env` (keep `sslmode=require`); the import script enables the PostGIS
+extension for you.
 
 ## Import OSM data
 

@@ -24,7 +24,7 @@ bun install
 
 ## Database
 
-Start PostGIS and create the local environment file:
+Local PostGIS via Docker:
 
 ```bash
 docker compose up -d
@@ -33,6 +33,18 @@ cp core/.env.example core/.env
 
 The database is exposed on `localhost:5432` and its data is kept in the named
 `spero-postgres-data` volume.
+
+### Hosted Postgres (Neon)
+
+A hosted Postgres also works. Put the connection string in `core/.env`, keeping
+`sslmode=require`:
+
+```
+DATABASE_URL=postgresql://user:password@host.neon.tech/neondb?sslmode=require
+```
+
+The import script enables PostGIS (`CREATE EXTENSION IF NOT EXISTS postgis`)
+before it runs osm2pgsql, so no manual extension setup is needed.
 
 ## Import OSM data
 
@@ -43,8 +55,8 @@ is on `PATH` (or set `OSM2PGSQL_BIN`). Then:
 bun run db:import
 ```
 
-The script downloads `maharashtra-latest.osm.pbf` from Geofabrik into
-`core/data/` (gitignored), imports POIs into the `pois` table with the flex
+The script enables PostGIS, downloads `maharashtra-latest.osm.pbf` from Geofabrik
+into `core/data/` (gitignored), imports POIs into the `pois` table with the flex
 style in `core/scripts/pois.lua`, and creates the spatial indexes. Use
 `bun run db:import --force` to download a fresh extract.
 
