@@ -3,16 +3,11 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Bbox, PoiCategory } from "@spero/shared";
 import { TILE_CACHE_PATH, TILE_TTL_MS } from "../config/cache";
+import { POI_PROVIDER } from "../config/poi";
 import { tileKey, type Tile } from "../lib/tiles";
-import type { OverpassPoi } from "./overpass";
+import type { SourcePoi } from "./poi-types";
 
-export interface StoredPoi {
-  osmId: string;
-  category: PoiCategory;
-  name: string | null;
-  lng: number;
-  lat: number;
-}
+export type StoredPoi = SourcePoi;
 
 interface TileRow {
   fetched_at: number;
@@ -36,7 +31,7 @@ function getDatabase(): Database {
   const db = new Database(TILE_CACHE_PATH);
   db.exec("PRAGMA journal_mode = WAL");
   db.exec(`
-    CREATE TABLE IF NOT EXISTS overpass_tiles (
+    CREATE TABLE IF NOT EXISTS poi_tiles (
       tile_x INTEGER NOT NULL,
       tile_y INTEGER NOT NULL,
       fetched_at INTEGER NOT NULL,
@@ -54,9 +49,34 @@ function getDatabase(): Database {
       tile_y INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS pois_tile_idx ON pois (tile_x, tile_y);
     CREATE INDEX IF NOT EXISTS pois_lng_lat_idx ON pois (lng, lat);
+
+    -- The cache was named after Overpass before Geoapify support was added.
+    DROP TABLE IF EXISTS overpass_tiles;
   `);
+
+  // Results from different providers must never be mixed in one tile: the same
+  // place could be cached twice and counted twice by the scoring pass.
+  const storedProvider = db
+    .query<{ value: string }, [string]>(
+      "SELECT value FROM meta WHERE key = ?",
+    )
+    .get("provider");
+
+  if (storedProvider?.value !== POI_PROVIDER) {
+    db.exec("DELETE FROM pois");
+    db.exec("DELETE FROM poi_tiles");
+    db.query<unknown, [string]>(
+      `INSERT INTO meta (key, value) VALUES ('provider', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    ).run(POI_PROVIDER);
+  }
 
   database = db;
   return db;
@@ -66,7 +86,7 @@ function getDatabase(): Database {
 export function getFreshTiles(tiles: Tile[]): Set<string> {
   const db = getDatabase();
   const statement = db.query<TileRow, [number, number]>(
-    "SELECT fetched_at FROM overpass_tiles WHERE tile_x = ? AND tile_y = ?",
+    "SELECT fetched_at FROM poi_tiles WHERE tile_x = ? AND tile_y = ?",
   );
   const now = Date.now();
   const fresh = new Set<string>();
@@ -85,7 +105,7 @@ export function getFreshTiles(tiles: Tile[]): Set<string> {
 export function hasTile(tile: Tile): boolean {
   const row = getDatabase()
     .query<{ one: number }, [number, number]>(
-      "SELECT 1 AS one FROM overpass_tiles WHERE tile_x = ? AND tile_y = ?",
+      "SELECT 1 AS one FROM poi_tiles WHERE tile_x = ? AND tile_y = ?",
     )
     .get(tile.x, tile.y);
 
@@ -93,7 +113,7 @@ export function hasTile(tile: Tile): boolean {
 }
 
 /** Replace the cached POIs of a tile with a fresh fetch. */
-export function saveTile(tile: Tile, pois: OverpassPoi[]): void {
+export function saveTile(tile: Tile, pois: SourcePoi[]): void {
   const db = getDatabase();
 
   const replace = db.transaction(() => {
@@ -124,7 +144,7 @@ export function saveTile(tile: Tile, pois: OverpassPoi[]): void {
     }
 
     const upsertTile = db.query<unknown, [number, number, number, number]>(
-      `INSERT INTO overpass_tiles (tile_x, tile_y, fetched_at, poi_count)
+      `INSERT INTO poi_tiles (tile_x, tile_y, fetched_at, poi_count)
        VALUES (?, ?, ?, ?)
        ON CONFLICT(tile_x, tile_y) DO UPDATE SET
          fetched_at = excluded.fetched_at,
@@ -160,7 +180,7 @@ export function readPoisInBbox(bbox: Bbox): StoredPoi[] {
 export function cacheStats(): { tiles: number; pois: number } {
   const db = getDatabase();
   const tiles = db
-    .query<{ count: number }, []>("SELECT count(*) AS count FROM overpass_tiles")
+    .query<{ count: number }, []>("SELECT count(*) AS count FROM poi_tiles")
     .get();
   const pois = db
     .query<{ count: number }, []>("SELECT count(*) AS count FROM pois")

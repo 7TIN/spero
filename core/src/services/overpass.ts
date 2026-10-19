@@ -10,14 +10,10 @@ import {
   OVERPASS_URLS,
   OVERPASS_USER_AGENT,
 } from "../config/overpass";
+import type { SourcePoi } from "./poi-types";
 
-export interface OverpassPoi {
-  osmId: string;
-  category: PoiCategory;
-  name: string | null;
-  lng: number;
-  lat: number;
-}
+/** Kept as an alias so existing imports keep reading naturally. */
+export type OverpassPoi = SourcePoi;
 
 /** Raised when every configured Overpass endpoint fails. */
 export class OverpassError extends Error {

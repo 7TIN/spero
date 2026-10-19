@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { OVERPASS_URLS } from './config/overpass'
+import { POI_PROVIDER } from './config/poi'
+import { GeoapifyError } from './services/geoapify'
 import { OverpassError, probeOverpass } from './services/overpass'
 import { cacheStats } from './services/tile-cache'
 import { hotzonesRoute } from './routes/hotzones'
@@ -31,13 +33,15 @@ app.get('/health', async (c) => {
     const body = {
       status: 'ok' as const,
       cache: 'sqlite' as const,
+      provider: POI_PROVIDER,
       tiles: cache.tiles,
       pois: cache.pois,
       overpass: OVERPASS_URLS,
     }
 
     // Only hit Overpass when explicitly asked, so health checks stay cheap.
-    if (c.req.query('probe') !== '1') {
+    // Geoapify refreshes are already cached, so there is nothing to probe.
+    if (c.req.query('probe') !== '1' || POI_PROVIDER !== 'overpass') {
       return c.json(body)
     }
 
@@ -57,7 +61,7 @@ app.route('/api/hotzones', hotzonesRoute)
 app.route('/api/pois', poisRoute)
 
 app.onError((error, c) => {
-  if (error instanceof OverpassError) {
+  if (error instanceof OverpassError || error instanceof GeoapifyError) {
     console.error(error.message)
     return c.json({ error: error.message }, 502)
   }

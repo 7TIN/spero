@@ -22,25 +22,38 @@ spero/
 bun install
 ```
 
-## Data (Overpass + local cache)
+## Data (hosted provider + local cache)
 
-No database to run and no OSM extract to download. Phase 1 reads crowd POIs
-from the public [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API)
-and caches them in a local SQLite file (`bun:sqlite`):
+No database to run, no OSM extract to download, and nothing to self-host.
+Phase 1 reads crowd POIs from the hosted
+[Geoapify Places API](https://www.geoapify.com/places-api/) and caches them in a
+local SQLite file (`bun:sqlite`):
 
 ```bash
-cp core/.env.example core/.env   # optional; all defaults work without it
+cp core/.env.example core/.env
+# then paste your key into core/.env
 ```
 
-- Endpoints default to `overpass-api.de`, with five other global mirrors
-  (`kumi.systems`, `private.coffee`, `osm.jp`, `openstreetmap.ru`,
-  `nchc.org.tw`) as fallbacks. Override with `OVERPASS_URLS`.
-- The cache lives in `core/data/tiles.sqlite` (gitignored). The map is split
-  into 0.05° tiles that are reused for 30 days, so repeated pans do not hit
-  Overpass.
-- Requests are serialised with a minimum gap and back off for 30 s after every
-  endpoint fails, so a busy Overpass is never retried in a loop. If Overpass is
-  unreachable, stale cached tiles are served instead of failing.
+1. Create a free key at <https://myprojects.geoapify.com/> (3,000 credits/day, no
+   credit card required).
+2. Set `GEOAPIFY_API_KEY=...` in `core/.env`.
+3. Restart `bun run dev`.
+
+- Geoapify is used automatically when the key is set. Without a key the app falls
+  back to the public Overpass API, which is currently unreliable.
+- The cache lives in `core/data/tiles.sqlite` (gitignored). The map is split into
+  0.05° tiles reused for 30 days, so panning does not spend credits. A cold
+  refresh costs roughly 26–51 credits (500–1,000 places).
+- Switching providers clears the cache automatically, so results from two
+  providers are never mixed.
+
+### Overpass fallback
+
+If you set `POI_PROVIDER=overpass`, the API uses the public Overpass endpoints.
+They default to `overpass-api.de`, with five other global mirrors
+(`kumi.systems`, `private.coffee`, `osm.jp`, `openstreetmap.ru`,
+`nchc.org.tw`); override with `OVERPASS_URLS`. Requests are serialised with a
+minimum gap and back off for 30 s after every endpoint fails.
 
 ### Optional: bulk import into PostGIS
 

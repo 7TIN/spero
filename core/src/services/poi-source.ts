@@ -1,8 +1,8 @@
 import type { Bbox } from "@spero/shared";
 import { MAX_TILES_PER_REQUEST } from "../config/cache";
 import { tileFor, tileKey, tilesForBbox, unionBbox, type Tile } from "../lib/tiles";
-import type { OverpassPoi } from "./overpass";
-import { fetchPoisForBbox } from "./overpass";
+import { fetchPoisForBbox } from "./poi-provider";
+import type { SourcePoi } from "./poi-types";
 import {
   getFreshTiles,
   hasTile,
@@ -21,7 +21,7 @@ export async function getPoisForBbox(bbox: Bbox): Promise<StoredPoi[]> {
   return readPoisInBbox(bbox);
 }
 
-/** In-flight tile fetches, so concurrent callers share one Overpass request. */
+/** In-flight tile fetches, so concurrent callers share one provider request. */
 const inFlight = new Map<string, Promise<void>>();
 
 async function refreshTiles(bbox: Bbox): Promise<void> {
@@ -56,10 +56,10 @@ async function fetchPendingTiles(pending: Tile[]): Promise<void> {
   const pendingKeys = new Set(pending.map(tileKey));
 
   try {
-    // One Overpass request covers the whole gap; results are then split back
+    // One provider request covers the whole gap; results are then split back
     // into the tiles they belong to.
     const pois = await fetchPoisForBbox(unionBbox(pending));
-    const grouped = new Map<string, OverpassPoi[]>();
+    const grouped = new Map<string, SourcePoi[]>();
     for (const tile of pending) {
       grouped.set(tileKey(tile), []);
     }
@@ -78,7 +78,7 @@ async function fetchPendingTiles(pending: Tile[]): Promise<void> {
     // long as every pending tile has something.
     if (pending.every(hasTile)) {
       console.warn(
-        "Overpass fetch failed; serving stale cached tiles:",
+        "POI fetch failed; serving stale cached tiles:",
         error instanceof Error ? error.message : error,
       );
       return;
