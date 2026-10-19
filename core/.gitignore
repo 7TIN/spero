@@ -7,6 +7,8 @@ dist/
 
 # Imported OSM data
 data/
+*.osm.pbf
+*.osm.pbf.part
 
 # Environment variables
 .env

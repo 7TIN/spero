@@ -55,7 +55,7 @@ is on `PATH` (or set `OSM2PGSQL_BIN`). Then:
 bun run db:import
 ```
 
-The script enables PostGIS, downloads `maharashtra-latest.osm.pbf` from Geofabrik
+The script enables PostGIS, downloads the western-zone extract from Geofabrik
 into `core/data/` (gitignored), imports POIs into the `pois` table with the flex
 style in `core/scripts/pois.lua`, and creates the spatial indexes. Use
 `bun run db:import --force` to download a fresh extract.

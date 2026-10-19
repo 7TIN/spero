@@ -40,7 +40,7 @@ is on `PATH` (or set `OSM2PGSQL_BIN`). Then, from the repo root:
 bun run db:import
 ```
 
-The script downloads the Maharashtra extract into `core/data/` (gitignored),
+The script downloads the western-zone extract into `core/data/` (gitignored),
 imports `pois` with `scripts/pois.lua`, and creates the indexes needed by the
 scoring queries.
 

@@ -7,10 +7,10 @@ import { SQL } from "bun";
 
 const CORE_DIR = join(import.meta.dir, "..");
 const DATA_DIR = join(CORE_DIR, "data");
-const PBF_PATH = join(DATA_DIR, "maharashtra-latest.osm.pbf");
+const PBF_FILE_NAME = "western-zone-261018.osm.pbf";
+const PBF_PATH = join(DATA_DIR, PBF_FILE_NAME);
 const STYLE_PATH = join(import.meta.dir, "pois.lua");
-const PBF_URL =
-  "https://download.geofabrik.de/asia/india/maharashtra-latest.osm.pbf";
+const PBF_URL = `https://download.geofabrik.de/asia/india/${PBF_FILE_NAME}`;
 
 const force = process.argv.includes("--force");
 

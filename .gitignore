@@ -69,5 +69,9 @@ playwright/.cache/
 # Local planning docs
 docs/
 
+# OSM extracts
+*.osm.pbf
+*.osm.pbf.part
+
 # Misc
 *.pem
