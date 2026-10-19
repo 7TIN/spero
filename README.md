@@ -32,12 +32,14 @@ and caches them in a local SQLite file (`bun:sqlite`):
 cp core/.env.example core/.env   # optional; all defaults work without it
 ```
 
-- Endpoints default to `overpass-api.de`, with `overpass.kumi.systems` as a
-  fallback. Override with `OVERPASS_URLS`.
+- Endpoints default to `overpass-api.de`, with `overpass.kumi.systems` and
+  `overpass.private.coffee` as fallbacks. Override with `OVERPASS_URLS`.
 - The cache lives in `core/data/tiles.sqlite` (gitignored). The map is split
   into 0.05° tiles that are reused for 30 days, so repeated pans do not hit
   Overpass.
-- If Overpass is unreachable, stale cached tiles are served instead of failing.
+- Requests are serialised with a minimum gap and back off for 30 s after every
+  endpoint fails, so a busy Overpass is never retried in a loop. If Overpass is
+  unreachable, stale cached tiles are served instead of failing.
 
 ### Optional: bulk import into PostGIS
 

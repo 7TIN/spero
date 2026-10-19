@@ -18,5 +18,8 @@ export function usePois(
     enabled: enabled && bbox !== null && sortedCategories.length > 0,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+    // Overpass already tries several endpoints; do not add request retries.
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }

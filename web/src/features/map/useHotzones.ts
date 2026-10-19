@@ -12,5 +12,8 @@ export function useHotzones(bbox: Bbox | null, cell: number, radius: number) {
     enabled: bbox !== null,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+    // Overpass already tries several endpoints; do not add request retries.
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }

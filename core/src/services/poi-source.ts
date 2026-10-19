@@ -1,6 +1,6 @@
 import type { Bbox } from "@spero/shared";
 import { MAX_TILES_PER_REQUEST } from "../config/cache";
-import { tileFor, tileKey, tilesForBbox, unionBbox } from "../lib/tiles";
+import { tileFor, tileKey, tilesForBbox, unionBbox, type Tile } from "../lib/tiles";
 import type { OverpassPoi } from "./overpass";
 import { fetchPoisForBbox } from "./overpass";
 import {
@@ -21,6 +21,9 @@ export async function getPoisForBbox(bbox: Bbox): Promise<StoredPoi[]> {
   return readPoisInBbox(bbox);
 }
 
+/** In-flight tile fetches, so concurrent callers share one Overpass request. */
+const inFlight = new Map<string, Promise<void>>();
+
 async function refreshTiles(bbox: Bbox): Promise<void> {
   const tiles = tilesForBbox(bbox);
 
@@ -32,6 +35,24 @@ async function refreshTiles(bbox: Bbox): Promise<void> {
   const pending = tiles.filter((tile) => !fresh.has(tileKey(tile)));
   if (pending.length === 0) return;
 
+  const key = pending.map(tileKey).sort().join(",");
+  const existing = inFlight.get(key);
+  if (existing) {
+    await existing;
+    return;
+  }
+
+  const task = fetchPendingTiles(pending);
+  inFlight.set(key, task);
+
+  try {
+    await task;
+  } finally {
+    inFlight.delete(key);
+  }
+}
+
+async function fetchPendingTiles(pending: Tile[]): Promise<void> {
   const pendingKeys = new Set(pending.map(tileKey));
 
   try {

@@ -1,10 +1,12 @@
 import type { Bbox, PoiCategory } from "@spero/shared";
 import {
-  OVERPASS_MAX_ATTEMPTS_PER_URL,
+  OVERPASS_COOLDOWN_MS,
+  OVERPASS_ENDPOINT_RETRY_DELAY_MS,
+  OVERPASS_ENDPOINT_RETRY_JITTER_MS,
+  OVERPASS_MIN_REQUEST_GAP_MS,
   OVERPASS_PROBE_TIMEOUT_MS,
   OVERPASS_QUERY_TIMEOUT_S,
   OVERPASS_REQUEST_TIMEOUT_MS,
-  OVERPASS_RETRY_BASE_DELAY_MS,
   OVERPASS_URLS,
   OVERPASS_USER_AGENT,
 } from "../config/overpass";
@@ -25,19 +27,26 @@ export class OverpassError extends Error {
   }
 }
 
+class OverpassHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Overpass responded with ${status}`);
+    this.name = "OverpassHttpError";
+    this.status = status;
+  }
+}
+
 /**
- * Tag selectors sent to Overpass. Kept as a regex union per key so a full tile
- * query stays small. The definitive category split happens in `categorize`,
- * which mirrors `scripts/pois.lua`.
+ * One selector for the whole request. The key regex plus value regex can match
+ * a few false positives (for example `shop=station`), but `categorize` drops
+ * anything that is not a real crowd category, so the query stays cheap.
  */
-const TAG_FILTERS = [
-  '["amenity"~"^(college|university|school|hospital|clinic|bus_station|marketplace|place_of_worship|bank|townhall|cinema|theatre|restaurant|cafe|fast_food)$"]',
-  '["railway"="station"]',
-  '["public_transport"="station"]',
-  '["shop"~"^(mall|supermarket)$"]',
-  '["tourism"~"^(hotel|guest_house)$"]',
-  '["office"="government"]',
-];
+const KEY_PATTERN =
+  "^(amenity|shop|railway|tourism|office|public_transport)$";
+
+const VALUE_PATTERN =
+  "^(college|university|school|hospital|clinic|bus_station|marketplace|place_of_worship|bank|townhall|cinema|theatre|restaurant|cafe|fast_food|station|mall|supermarket|hotel|guest_house|government)$";
 
 interface OverpassElement {
   type: "node" | "way" | "relation";
@@ -105,16 +114,12 @@ function bboxClause(bbox: Bbox): string {
 }
 
 function buildQuery(bbox: Bbox): string {
-  const area = bboxClause(bbox);
-  const lines = [`[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_S}];`, "("];
-
-  for (const filter of TAG_FILTERS) {
-    lines.push(`  nwr${filter}${area};`);
-  }
-
-  // `out tags center` returns tags plus a centroid for ways and relations.
-  lines.push(");", "out tags center;");
-  return lines.join("\n");
+  return [
+    `[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_S}];`,
+    `nwr[~"${KEY_PATTERN}"~"${VALUE_PATTERN}"]${bboxClause(bbox)};`,
+    // `out tags center` returns tags plus a centroid for ways and relations.
+    "out tags center;",
+  ].join("\n");
 }
 
 function parseElements(response: OverpassResponse): OverpassPoi[] {
@@ -147,13 +152,48 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Serialises every Overpass call behind a single queue with a minimum gap, so
+ * several tiles/panels cannot fire at once.
+ */
+let queueTail: Promise<unknown> = Promise.resolve();
+let lastRequestAt = 0;
+
+function schedule<T>(task: () => Promise<T>): Promise<T> {
+  const run = queueTail.then(async () => {
+    const wait = lastRequestAt + OVERPASS_MIN_REQUEST_GAP_MS - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastRequestAt = Date.now();
+    return task();
+  });
+
+  queueTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+
+  return run;
+}
+
+let cooldownUntil = 0;
+
 async function requestOverpass(query: string): Promise<OverpassResponse> {
+  const cooldownRemaining = cooldownUntil - Date.now();
+  if (cooldownRemaining > 0) {
+    throw new OverpassError(
+      `Overpass is backing off for another ${Math.ceil(cooldownRemaining / 1000)}s`,
+    );
+  }
+
   let lastError: unknown;
 
-  for (const url of OVERPASS_URLS) {
-    for (let attempt = 1; attempt <= OVERPASS_MAX_ATTEMPTS_PER_URL; attempt += 1) {
-      try {
-        const response = await fetch(url, {
+  for (let index = 0; index < OVERPASS_URLS.length; index += 1) {
+    const url = OVERPASS_URLS[index];
+    if (!url) continue;
+
+    try {
+      const response = await schedule(() =>
+        fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -161,27 +201,34 @@ async function requestOverpass(query: string): Promise<OverpassResponse> {
           },
           body: new URLSearchParams({ data: query }).toString(),
           signal: AbortSignal.timeout(OVERPASS_REQUEST_TIMEOUT_MS),
-        });
+        }),
+      );
 
-        if (!response.ok) {
-          throw new Error(`Overpass responded with ${response.status}`);
-        }
+      if (!response.ok) {
+        throw new OverpassHttpError(response.status);
+      }
 
-        return (await response.json()) as OverpassResponse;
-      } catch (error) {
-        lastError = error;
-        console.warn(
-          `Overpass request to ${url} failed (attempt ${attempt}/${OVERPASS_MAX_ATTEMPTS_PER_URL}):`,
-          error instanceof Error ? error.message : error,
-        );
+      return (await response.json()) as OverpassResponse;
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `Overpass request to ${url} failed:`,
+        error instanceof Error ? error.message : error,
+      );
 
-        if (attempt < OVERPASS_MAX_ATTEMPTS_PER_URL) {
-          await sleep(OVERPASS_RETRY_BASE_DELAY_MS * attempt);
-        }
+      if (index < OVERPASS_URLS.length - 1) {
+        const retryable =
+          error instanceof OverpassHttpError &&
+          (error.status === 429 || error.status >= 500);
+        const delay =
+          (retryable ? OVERPASS_ENDPOINT_RETRY_DELAY_MS : 250) +
+          Math.random() * OVERPASS_ENDPOINT_RETRY_JITTER_MS;
+        await sleep(delay);
       }
     }
   }
 
+  cooldownUntil = Date.now() + OVERPASS_COOLDOWN_MS;
   throw new OverpassError(
     `Could not reach the Overpass API. ${
       lastError instanceof Error ? lastError.message : "Unknown error"
