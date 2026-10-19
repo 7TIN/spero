@@ -70,4 +70,6 @@ in `src/services/scoring.ts`.
 
 ## Entry point
 
-`src/index.ts` exports the Hono app. Bun serves the app directly in development.
+`src/index.ts` exports the Hono app plus a Bun serve config. `idleTimeout` is
+raised from Bun's 10 s default because a cold provider fetch can take longer,
+and Bun would otherwise reset the connection before the response is written.
