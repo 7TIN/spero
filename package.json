@@ -1,0 +1,21 @@
+{
+  "name": "spero",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "core",
+    "web"
+  ],
+  "scripts": {
+    "dev": "bun run --parallel --filter '*' dev",
+    "dev:core": "bun run --filter @spero/core dev",
+    "dev:web": "bun run --filter @spero/web dev",
+    "build": "bun run --workspaces --if-present build",
+    "typecheck": "bun run --workspaces --if-present typecheck",
+    "lint": "bun run --workspaces --if-present lint"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^7"
+  }
+}
