@@ -2,8 +2,9 @@
 
 ## Commit policy
 
-- Commit after each completed step or feature instead of batching everything into one large commit.
-- Keep each commit focused and buildable.
+- Commit at meaningful checkpoints: when a feature or coherent slice of work is complete and usable. Do not save everything for one giant commit, and do not create tiny filler commits after every small edit.
+- Each commit should be reviewable on its own: focused, complete, and buildable. Avoid commits that exist only to increase the commit count.
+- Use descriptive commit messages that explain what changed and why; avoid vague one-line messages.
 - Run the relevant checks before committing:
   - `bun run typecheck`
   - `bun run lint`
