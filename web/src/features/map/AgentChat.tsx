@@ -4,7 +4,6 @@ import {
   BUSINESS_TYPE_OPTIONS,
   type AgentContext,
   type AgentResponse,
-  type AgentSource,
 } from "@spero/shared";
 import { ArrowUp, Loader2, Sparkles, Trash2, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -21,7 +20,6 @@ interface ChatMessage {
   id: number;
   role: "user" | "assistant";
   text: string;
-  source?: AgentSource;
   response?: AgentResponse;
   error?: boolean;
 }
@@ -65,12 +63,6 @@ function appliedChips(response: AgentResponse): string[] {
   return chips;
 }
 
-function sourceLabel(source: AgentSource): string {
-  return source === "gemini"
-    ? "Gemini 3.5 Flash Lite"
-    : "Quick planner · add GEMINI_API_KEY for AI";
-}
-
 export function AgentChat({ context, onApply }: AgentChatProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -111,7 +103,6 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
           id: (nextId.current += 1),
           role: "assistant",
           text: response.message,
-          source: response.source,
           response,
         });
         onApply(response);
@@ -145,7 +136,7 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
         >
           <header className="flex items-center justify-between gap-3 border-b px-4 py-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sheen">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-zinc-300/80 bg-zinc-200 text-zinc-700 shadow-sheen dark:border-zinc-600/80 dark:bg-zinc-700 dark:text-zinc-200">
                 <Sparkles className="size-4" />
               </span>
               <div className="min-w-0">
@@ -186,7 +177,7 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
               if (message.role === "user") {
                 return (
                   <div key={message.id} className="flex justify-end">
-                    <div className="max-w-[86%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm leading-relaxed text-primary-foreground shadow-sheen">
+                    <div className="max-w-[86%] rounded-2xl rounded-br-sm border border-zinc-300/80 bg-zinc-200 px-3 py-2 text-sm leading-relaxed text-zinc-800 shadow-sheen dark:border-zinc-600/80 dark:bg-zinc-700 dark:text-zinc-100">
                       {message.text}
                     </div>
                   </div>
@@ -204,7 +195,7 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
                       "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full",
                       message.error
                         ? "bg-destructive/10 text-destructive"
-                        : "bg-primary/10 text-primary",
+                        : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300",
                     )}
                   >
                     <Sparkles className="size-3.5" />
@@ -223,17 +214,12 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
                         {chips.map((chip) => (
                           <span
                             key={chip}
-                            className="rounded-full border bg-background/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                            className="rounded-full border border-zinc-300/80 bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-700 dark:border-zinc-600/80 dark:bg-zinc-700 dark:text-zinc-200"
                           >
                             {chip}
                           </span>
                         ))}
                       </div>
-                    )}
-                    {message.source && (
-                      <p className="pt-2 text-[9px] text-muted-foreground">
-                        {sourceLabel(message.source)}
-                      </p>
                     )}
                   </div>
                 </div>
@@ -242,7 +228,7 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
 
             {mutation.isPending && (
               <div className="flex items-start gap-2.5">
-                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                   <Sparkles className="size-3.5" />
                 </span>
                 <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border bg-muted/45 px-3 py-2 text-xs text-muted-foreground">
@@ -285,8 +271,9 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
           </div>
           <Button
             type="submit"
+            variant="outline"
             size="icon"
-            className="size-10 rounded-xl"
+            className="size-10 rounded-xl border-zinc-300/80 bg-zinc-200 text-zinc-700 hover:bg-zinc-300 hover:text-zinc-900 dark:border-zinc-600/80 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600 dark:hover:text-zinc-50"
             disabled={input.trim().length < 2 || mutation.isPending}
             aria-label="Send to Spero Agent"
             title="Send"

@@ -167,7 +167,7 @@ export function MapSearch({ onSelect }: MapSearchProps) {
           {search.isFetching && results.length === 0 && (
             <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" />
-              Searching OpenStreetMap…
+              Searching the map…
             </div>
           )}
 
@@ -226,18 +226,6 @@ export function MapSearch({ onSelect }: MapSearchProps) {
               })}
             </ul>
           )}
-
-          <p className="border-t px-3 py-1.5 text-[9px] text-muted-foreground">
-            Search by{" "}
-            <a
-              className="underline underline-offset-2 hover:text-foreground"
-              href="https://nominatim.openstreetmap.org/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              OpenStreetMap Nominatim
-            </a>
-          </p>
         </div>
       )}
     </div>

@@ -674,7 +674,7 @@ async function resolveLocation(locationQuery: string): Promise<{
       result,
       notice: result
         ? ""
-        : `I couldn't find "${locationQuery}" on OpenStreetMap, so I kept the current view.`,
+        : `I couldn't find "${locationQuery}" on the map, so I kept the current view.`,
     };
   } catch (error) {
     console.error("Agent geocode failed", error);

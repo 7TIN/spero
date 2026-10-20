@@ -1,6 +1,5 @@
 import { Loader2, Moon, Scan, Sun } from "lucide-react";
 import { POI_CATEGORIES, type PoiCategory } from "@spero/shared";
-import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
   Card,
@@ -73,15 +72,8 @@ export function ControlPanel({
   return (
     <Card className="absolute top-4 right-4 z-10 w-80 max-w-[calc(100vw-2rem)]">
       <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2">
-              Spero
-              <Badge className="border-transparent bg-secondary text-secondary-foreground">
-                Phase 2
-              </Badge>
-            </CardTitle>
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>Spero</CardTitle>
           <Button
             variant="ghost"
             size="icon"
