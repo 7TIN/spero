@@ -41,7 +41,6 @@ interface ControlPanelProps {
   onBasemapChange: (value: BasemapId) => void;
   mode: SelectionMode;
   onModeChange: (value: SelectionMode) => void;
-  locked: boolean;
   cellSize: number;
   radius: number;
   onCellSizeChange: (value: number) => void;
@@ -61,7 +60,6 @@ export function ControlPanel({
   onBasemapChange,
   mode,
   onModeChange,
-  locked,
   cellSize,
   radius,
   onCellSizeChange,
@@ -152,9 +150,8 @@ export function ControlPanel({
           </div>
           {mode === "selection" && (
             <p className="text-xs text-muted-foreground">
-              {locked
-                ? "Locked: only the outlined cell is scored. Lower the cell size to see finer cells inside it."
-                : "Click a cell to keep its dotted outline. The lock scores only that cell."}
+              Click a cell to keep its dotted outline. Use the pin button to save
+              several areas, then reopen them from the left panel.
             </p>
           )}
         </div>

@@ -4,6 +4,8 @@ import {
   ChevronDown,
   Copy,
   Loader2,
+  Pin,
+  PinOff,
   SquareDashed,
   X,
 } from "lucide-react";
@@ -26,15 +28,17 @@ import {
   CATEGORY_COLORS,
   CATEGORY_LABELS,
   COMPETITOR_COLOR,
+  MAX_PINNED_CELLS,
 } from "./constants";
 import { haversineMeters } from "./geo";
+import { cn } from "../../lib/utils";
 import {
   BUSINESS_TYPE_ICONS,
   CATEGORY_ICONS,
 } from "./place-icons";
 import { formatDistance, type PlaceCardData } from "./place-format";
 import { PlaceCard } from "./PlaceCard";
-import type { SelectedCell } from "./types";
+import type { PinnedCell, SelectedCell } from "./types";
 import { useCellPois } from "./useCellPois";
 
 interface CellDetailPanelProps {
@@ -47,7 +51,14 @@ interface CellDetailPanelProps {
   competitorsFetching: boolean;
   competitorsError: Error | null;
   focusedPlaceId: string | null;
+  pinnedCells: PinnedCell[];
+  selectedPinId: string | null;
+  pinned: boolean;
+  pinLimitReached: boolean;
   onClearCell: () => void;
+  onTogglePin: () => void;
+  onSelectPin: (pin: PinnedCell) => void;
+  onRemovePin: (id: string) => void;
 }
 
 interface CellPlace extends PlaceCardData {
@@ -90,7 +101,14 @@ export function CellDetailPanel({
   competitorsFetching,
   competitorsError,
   focusedPlaceId,
+  pinnedCells,
+  selectedPinId,
+  pinned,
+  pinLimitReached,
   onClearCell,
+  onTogglePin,
+  onSelectPin,
+  onRemovePin,
 }: CellDetailPanelProps) {
   const { data, isFetching, error } = useCellPois(cell, radius);
   const [copied, setCopied] = useState(false);
@@ -253,6 +271,26 @@ export function CellDetailPanel({
             <Button
               variant="ghost"
               size="icon"
+              className={cn(
+                pinned && "text-amber-600 dark:text-amber-300",
+              )}
+              aria-label={pinned ? "Unpin this cell" : "Pin this cell"}
+              aria-pressed={pinned}
+              disabled={!pinned && pinLimitReached}
+              title={
+                pinned
+                  ? "Unpin this cell"
+                  : pinLimitReached
+                    ? "Pin limit reached: unpin a cell first"
+                    : "Pin this cell to keep it in the saved list"
+              }
+              onClick={onTogglePin}
+            >
+              {pinned ? <PinOff /> : <Pin />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               aria-label="Clear selected cell"
               title="Clear selected cell"
               onClick={onClearCell}
@@ -293,6 +331,68 @@ export function CellDetailPanel({
         </div>
       </div>
 
+      {pinnedCells.length > 0 && (
+        <div className="border-b px-3 py-2">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+              Pinned cells
+            </p>
+            <span className="text-[10px] tabular-nums text-muted-foreground">
+              {pinnedCells.length}/{MAX_PINNED_CELLS}
+            </span>
+          </div>
+          <div className="thin-scrollbar mt-1 max-h-32 space-y-1 overflow-y-auto pr-0.5">
+            {pinnedCells.map((pin, index) => {
+              const active = pin.id === selectedPinId;
+
+              return (
+                <div
+                  key={pin.id}
+                  className={cn(
+                    "flex items-center gap-0.5 rounded-md border px-1 py-0.5 transition-colors",
+                    active
+                      ? "border-amber-500/40 bg-amber-500/10"
+                      : "border-transparent hover:bg-accent",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectPin(pin)}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm py-0.5 pl-0.5 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    title="Open this pinned cell"
+                  >
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-semibold text-white">
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11px] font-medium">
+                        Cell {index + 1}
+                      </span>
+                      <span className="block truncate text-[9px] tabular-nums text-muted-foreground">
+                        {pin.cell.centerLat.toFixed(4)},{" "}
+                        {pin.cell.centerLng.toFixed(4)}
+                      </span>
+                    </span>
+                    <Badge className="border-transparent bg-secondary px-1.5 text-[9px] text-secondary-foreground">
+                      {pin.cell.score.toFixed(0)}
+                    </Badge>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemovePin(pin.id)}
+                    aria-label={`Remove pinned cell ${index + 1}`}
+                    title="Remove pin"
+                    className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {!cell ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
           <div className="flex size-11 items-center justify-center rounded-full border bg-muted text-muted-foreground">
@@ -301,7 +401,8 @@ export function CellDetailPanel({
           <div className="space-y-1">
             <p className="text-sm font-medium">Select a cell</p>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Click any hot-zone cell on the map to see its places.
+              Click any hot-zone cell on the map, or reopen one of your pinned
+              cells above.
             </p>
           </div>
         </div>

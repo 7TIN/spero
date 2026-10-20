@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   POI_CATEGORIES,
   type BusinessTypeId,
@@ -11,6 +11,7 @@ import {
   DEFAULT_CELL_SIZE_M,
   DEFAULT_RADIUS_M,
   DEFAULT_ZOOM,
+  MAX_PINNED_CELLS,
   MOVE_DEBOUNCE_MS,
   POI_MIN_ZOOM,
   type BasemapId,
@@ -19,9 +20,11 @@ import { CellDetailPanel } from "./CellDetailPanel";
 import { haversineMeters } from "./geo";
 import { MapSearch } from "./MapSearch";
 import { MapView } from "./MapView";
+import { cellKey, loadPinnedCells, savePinnedCells } from "./pins";
 import type {
   FlyToTarget,
   MapViewport,
+  PinnedCell,
   SelectedCell,
   SelectionMode,
 } from "./types";
@@ -50,23 +53,23 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   });
   const [mode, setMode] = useState<SelectionMode>("selection");
   const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null);
-  const [lockedCell, setLockedCell] = useState<SelectedCell | null>(null);
+  const [pinnedCells, setPinnedCells] = useState<PinnedCell[]>(() =>
+    loadPinnedCells(),
+  );
   const [businessType, setBusinessType] = useState<BusinessTypeId | null>(null);
   const [focusedPlaceId, setFocusedPlaceId] = useState<string | null>(null);
   const [flyToTarget, setFlyToTarget] = useState<FlyToTarget | null>(null);
   const flyToId = useRef(0);
-  const locked = lockedCell !== null;
 
   const debouncedViewport = useDebouncedValue(viewport, MOVE_DEBOUNCE_MS);
 
-  // Locking pins the scored grid to the outlined cell, so zooming and panning
-  // no longer change the cells or bring in neighbours. Selecting a finer cell
-  // inside the lock only updates the panel, not the locked area.
-  const hotzones = useHotzones(
-    lockedCell?.bounds ?? debouncedViewport.bbox,
-    cellSize,
-    radius,
-  );
+  // Pins are saved areas, not a scoring lock: the grid keeps following the
+  // viewport so panning to another neighbourhood still scores that area.
+  const hotzones = useHotzones(debouncedViewport.bbox, cellSize, radius);
+
+  useEffect(() => {
+    savePinnedCells(pinnedCells);
+  }, [pinnedCells]);
 
   const poisEnabled =
     debouncedViewport.zoom >= POI_MIN_ZOOM && enabledCategories.length > 0;
@@ -76,10 +79,10 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     poisEnabled,
   );
 
-  // The competitor list belongs to the locked area when one is set, otherwise
-  // to the selected cell. Keeping the query here (not in the panel) keeps the
-  // markers in sync while the panel switches between a cell and its empty state.
-  const competitorArea = lockedCell ?? selectedCell;
+  // The competitor list follows the selected cell. Pins are saved shortcuts to
+  // cells, so choosing one simply selects it again. Keeping the query here (not
+  // in the panel) keeps the markers in sync with the panel's empty state.
+  const competitorArea = selectedCell;
   const competitors = usePlaces(competitorArea, businessType, radius);
 
   // The API returns the square bbox that contains the reach circle. Keep the
@@ -133,25 +136,55 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     setFocusedPlaceId(null);
     if (mode !== "selection") {
       setSelectedCell(null);
-      setLockedCell(null);
     }
   }, [mode]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedCell(null);
-    setLockedCell(null);
     setFocusedPlaceId(null);
   }, []);
 
-  const handleToggleLock = useCallback(() => {
-    setLockedCell((current) => (current ? null : selectedCell));
+  const handleTogglePin = useCallback(() => {
+    if (!selectedCell) return;
+
+    const id = cellKey(selectedCell);
+    setPinnedCells((current) => {
+      if (current.some((pin) => pin.id === id)) {
+        return current.filter((pin) => pin.id !== id);
+      }
+
+      if (current.length >= MAX_PINNED_CELLS) return current;
+
+      return [
+        ...current,
+        { id, cell: selectedCell, pinnedAt: Date.now() },
+      ];
+    });
   }, [selectedCell]);
+
+  const handleSelectPin = useCallback((pin: PinnedCell) => {
+    setMode("selection");
+    setSelectedCell(pin.cell);
+    setFocusedPlaceId(null);
+
+    flyToId.current += 1;
+    setFlyToTarget({
+      id: flyToId.current,
+      latitude: pin.cell.centerLat,
+      longitude: pin.cell.centerLng,
+      bbox: pin.cell.bounds,
+      label: "Pinned cell",
+    });
+  }, []);
+
+  const handleRemovePin = useCallback((id: string) => {
+    setPinnedCells((current) => current.filter((pin) => pin.id !== id));
+  }, []);
 
   const handleModeChange = useCallback((next: SelectionMode) => {
     setMode(next);
     if (next === "normal") {
       setSelectedCell(null);
-      setLockedCell(null);
       setFocusedPlaceId(null);
     }
   }, []);
@@ -184,6 +217,11 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     setFocusedPlaceId(placeId);
   }, []);
 
+  const selectedPinId = selectedCell ? cellKey(selectedCell) : null;
+  const selectedPinned =
+    selectedPinId !== null &&
+    pinnedCells.some((pin) => pin.id === selectedPinId);
+
   const handleSearchSelect = useCallback((result: GeocodeResult) => {
     flyToId.current += 1;
     setFlyToTarget({
@@ -210,13 +248,17 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         pois={pois.data}
         competitors={competitorMarkers}
         focusedPlaceId={focusedPlaceId}
-        outlineCell={lockedCell ?? selectedCell}
+        outlineCell={selectedCell}
         selectionMode={mode}
         flyToTarget={flyToTarget}
-        locked={locked}
+        pinnedCells={pinnedCells}
+        selectedPinId={selectedPinId}
+        pinned={selectedPinned}
+        pinLimitReached={pinnedCells.length >= MAX_PINNED_CELLS}
         onSelect={handleSelect}
         onClearSelection={handleClearSelection}
-        onToggleLock={handleToggleLock}
+        onTogglePin={handleTogglePin}
+        onSelectPin={handleSelectPin}
         onCompetitorSelect={handleCompetitorSelect}
         onMoveStart={handleMoveStart}
         onViewportChange={handleViewportChange}
@@ -234,7 +276,14 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
           competitors.error instanceof Error ? competitors.error : null
         }
         focusedPlaceId={focusedPlaceId}
+        pinnedCells={pinnedCells}
+        selectedPinId={selectedPinId}
+        pinned={selectedPinned}
+        pinLimitReached={pinnedCells.length >= MAX_PINNED_CELLS}
         onClearCell={handleClearSelection}
+        onTogglePin={handleTogglePin}
+        onSelectPin={handleSelectPin}
+        onRemovePin={handleRemovePin}
       />
       <ControlPanel
         isDark={isDark}
@@ -243,7 +292,6 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         onBasemapChange={setBasemapChoice}
         mode={mode}
         onModeChange={handleModeChange}
-        locked={locked}
         cellSize={cellSize}
         radius={radius}
         onCellSizeChange={handleCellSizeChange}

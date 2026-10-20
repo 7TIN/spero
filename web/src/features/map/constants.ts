@@ -31,6 +31,11 @@ export const MIN_RADIUS_M = 100;
 export const MAX_RADIUS_M = 2000;
 export const RADIUS_STEP_M = 50;
 
+/** Pins are deliberately capped so saved areas stay legible on the map. */
+export const MAX_PINNED_CELLS = 6;
+export const PIN_COLOR = "#f59e0b";
+export const PIN_STORAGE_KEY = "spero:pinned-cells:v1";
+
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 

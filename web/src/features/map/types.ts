@@ -26,6 +26,14 @@ export interface FlyToTarget {
   label: string;
 }
 
+/** A saved cell, kept across map moves and reloads. */
+export interface PinnedCell {
+  /** Stable bounds-derived key, also used to detect duplicate pins. */
+  id: string;
+  cell: SelectedCell;
+  pinnedAt: number;
+}
+
 /**
  * Normal keeps the map as it is. Selection keeps a clicked cell outlined so it
  * stays recognisable while the grid around it is re-scored.

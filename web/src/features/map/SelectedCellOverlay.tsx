@@ -1,18 +1,20 @@
 import type { HotzoneFeatureCollection } from "@spero/shared";
-import { Lock, LockOpen, X } from "lucide-react";
+import { Pin, PinOff, X } from "lucide-react";
 import { Layer, Marker, Source } from "react-map-gl/maplibre";
+import { cn } from "../../lib/utils";
 import type { SelectedCell } from "./types";
 
 interface SelectedCellOverlayProps {
   cell: SelectedCell;
-  locked: boolean;
+  pinned: boolean;
+  pinLimitReached: boolean;
   color: string;
   onClear: () => void;
-  onToggleLock: () => void;
+  onTogglePin: () => void;
 }
 
 const iconButtonClass =
-  "flex size-7 items-center justify-center rounded-md border bg-popover text-popover-foreground shadow-md transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+  "flex size-7 items-center justify-center rounded-md border bg-popover text-popover-foreground shadow-md transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50";
 
 function cellPolygon(cell: SelectedCell): HotzoneFeatureCollection {
   const { minLng, minLat, maxLng, maxLat } = cell.bounds;
@@ -43,10 +45,11 @@ function cellPolygon(cell: SelectedCell): HotzoneFeatureCollection {
 
 export function SelectedCellOverlay({
   cell,
-  locked,
+  pinned,
+  pinLimitReached,
   color,
   onClear,
-  onToggleLock,
+  onTogglePin,
 }: SelectedCellOverlayProps) {
   const { minLng, maxLng, maxLat } = cell.bounds;
 
@@ -74,23 +77,30 @@ export function SelectedCellOverlay({
       >
         <button
           type="button"
-          className={iconButtonClass}
-          aria-label={locked ? "Unlock the grid" : "Lock the grid to this cell"}
-          aria-pressed={locked}
+          className={cn(
+            iconButtonClass,
+            pinned &&
+              "border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-300",
+          )}
+          aria-label={pinned ? "Unpin this cell" : "Pin this cell"}
+          aria-pressed={pinned}
+          disabled={!pinned && pinLimitReached}
           title={
-            locked
-              ? "Unlock the grid: score the whole view again"
-              : "Lock the grid: only score cells inside this one"
+            pinned
+              ? "Unpin this cell"
+              : pinLimitReached
+                ? "Pin limit reached: unpin a cell first"
+                : "Pin this cell to keep it in the saved list"
           }
           onClick={(event) => {
             event.stopPropagation();
-            onToggleLock();
+            onTogglePin();
           }}
         >
-          {locked ? (
-            <Lock className="size-4" />
+          {pinned ? (
+            <PinOff className="size-4" />
           ) : (
-            <LockOpen className="size-4" />
+            <Pin className="size-4" />
           )}
         </button>
       </Marker>

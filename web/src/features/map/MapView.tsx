@@ -19,9 +19,15 @@ import {
 } from "./constants";
 import { CompetitorLayer } from "./CompetitorLayer";
 import { HotzoneLayer } from "./HotzoneLayer";
+import { PinnedCellsLayer } from "./PinnedCellsLayer";
 import { PoiLayer } from "./PoiLayer";
 import { SelectedCellOverlay } from "./SelectedCellOverlay";
-import type { FlyToTarget, SelectedCell, SelectionMode } from "./types";
+import type {
+  FlyToTarget,
+  PinnedCell,
+  SelectedCell,
+  SelectionMode,
+} from "./types";
 
 interface MapViewProps {
   basemap: BasemapId;
@@ -32,10 +38,14 @@ interface MapViewProps {
   outlineCell: SelectedCell | null;
   selectionMode: SelectionMode;
   flyToTarget: FlyToTarget | null;
-  locked: boolean;
+  pinnedCells: PinnedCell[];
+  selectedPinId: string | null;
+  pinned: boolean;
+  pinLimitReached: boolean;
   onSelect: (cell: SelectedCell) => void;
   onClearSelection: () => void;
-  onToggleLock: () => void;
+  onTogglePin: () => void;
+  onSelectPin: (pin: PinnedCell) => void;
   onCompetitorSelect: (placeId: string) => void;
   onMoveStart: () => void;
   onViewportChange: (viewport: { bbox: Bbox; zoom: number }) => void;
@@ -46,7 +56,7 @@ function parseScore(value: unknown): number {
   return Number.isFinite(score) ? score : 0;
 }
 
-/** Bounds of a rectangular cell ring, used for the outline and the lock. */
+/** Bounds of a rectangular cell ring, used for the selected-cell outline. */
 function ringBounds(ring: ReadonlyArray<ReadonlyArray<number>>): Bbox | null {
   let minLng = Number.POSITIVE_INFINITY;
   let minLat = Number.POSITIVE_INFINITY;
@@ -77,10 +87,14 @@ export function MapView({
   outlineCell,
   selectionMode,
   flyToTarget,
-  locked,
+  pinnedCells,
+  selectedPinId,
+  pinned,
+  pinLimitReached,
   onSelect,
   onClearSelection,
-  onToggleLock,
+  onTogglePin,
+  onSelectPin,
   onCompetitorSelect,
   onMoveStart,
   onViewportChange,
@@ -156,7 +170,7 @@ export function MapView({
       onMoveStart={onMoveStart}
       onZoom={(event) => setZoom(event.viewState.zoom)}
       onClick={(event) => {
-        // The outline's lock and close buttons sit inside MapLibre's canvas
+        // The outline's pin and close buttons sit inside MapLibre's canvas
         // container, so their clicks bubble to the map. Ignore marker clicks,
         // and ignore targets that the click handler already removed (the
         // overlay's own close button) instead of selecting the cell beneath.
@@ -191,6 +205,11 @@ export function MapView({
     >
       <NavigationControl position="bottom-right" />
       <HotzoneLayer data={hotzones} />
+      <PinnedCellsLayer
+        pins={pinnedCells}
+        selectedId={selectedPinId}
+        onSelect={onSelectPin}
+      />
       <PoiLayer data={pois} />
       {zoom >= POI_MIN_ZOOM && (
         <CompetitorLayer
@@ -202,10 +221,11 @@ export function MapView({
       {showOutline && outlineCell && (
         <SelectedCellOverlay
           cell={outlineCell}
-          locked={locked}
+          pinned={pinned}
+          pinLimitReached={pinLimitReached}
           color={basemap === "dark" ? "#f8fafc" : "#0f172a"}
           onClear={onClearSelection}
-          onToggleLock={onToggleLock}
+          onTogglePin={onTogglePin}
         />
       )}
     </Map>
