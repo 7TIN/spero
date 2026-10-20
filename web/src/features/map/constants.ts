@@ -65,10 +65,26 @@ export const OSM_STYLE: StyleSpecification = {
   layers: [{ id: "osm", type: "raster", source: "osm" }],
 };
 
+/**
+ * Local thumbnails rendered from the same styles as the live map, so the
+ * preview cards do not depend on a tile API key at runtime.
+ */
 export const BASEMAPS = [
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-  { id: "osm", label: "OSM" },
+  {
+    id: "light",
+    label: "Light",
+    previewUrl: `${import.meta.env.BASE_URL}basemaps/light.png`,
+  },
+  {
+    id: "dark",
+    label: "Dark",
+    previewUrl: `${import.meta.env.BASE_URL}basemaps/dark.png`,
+  },
+  {
+    id: "osm",
+    label: "OSM",
+    previewUrl: `${import.meta.env.BASE_URL}basemaps/osm.png`,
+  },
 ] as const;
 
 export type BasemapId = (typeof BASEMAPS)[number]["id"];

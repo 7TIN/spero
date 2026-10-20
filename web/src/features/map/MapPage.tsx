@@ -41,9 +41,8 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     bbox: null,
     zoom: DEFAULT_ZOOM,
   });
-  const [mode, setMode] = useState<SelectionMode>("normal");
+  const [mode, setMode] = useState<SelectionMode>("selection");
   const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null);
-  const [panelOpen, setPanelOpen] = useState(false);
   const [lockedCell, setLockedCell] = useState<SelectedCell | null>(null);
   const [businessType, setBusinessType] = useState<BusinessTypeId | null>(null);
   const [focusedPlaceId, setFocusedPlaceId] = useState<string | null>(null);
@@ -69,8 +68,8 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   );
 
   // The competitor list belongs to the locked area when one is set, otherwise
-  // to the selected cell. Keeping the query here (not in the panel) means the
-  // markers survive a pan that closes the panel.
+  // to the selected cell. Keeping the query here (not in the panel) keeps the
+  // markers in sync while the panel switches between a cell and its empty state.
   const competitorArea = lockedCell ?? selectedCell;
   const competitors = usePlaces(competitorArea, businessType, radius);
 
@@ -116,22 +115,12 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const handleSelect = useCallback((cell: SelectedCell) => {
     setSelectedCell(cell);
     setFocusedPlaceId(null);
-    setPanelOpen(true);
   }, []);
 
-  // Moving the map makes the open panel's numbers stale. In selection mode the
-  // outline stays so the user keeps their bearings; normal mode behaves as before.
+  // The left panel stays visible and falls back to its empty state. In normal
+  // mode a moving map drops the selection; selection mode keeps the outline so
+  // the user keeps their bearings.
   const handleMoveStart = useCallback(() => {
-    setPanelOpen(false);
-    setFocusedPlaceId(null);
-    if (mode !== "selection") {
-      setSelectedCell(null);
-      setLockedCell(null);
-    }
-  }, [mode]);
-
-  const handlePanelClose = useCallback(() => {
-    setPanelOpen(false);
     setFocusedPlaceId(null);
     if (mode !== "selection") {
       setSelectedCell(null);
@@ -141,7 +130,6 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
 
   const handleClearSelection = useCallback(() => {
     setSelectedCell(null);
-    setPanelOpen(false);
     setLockedCell(null);
     setFocusedPlaceId(null);
   }, []);
@@ -154,7 +142,6 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     setMode(next);
     if (next === "normal") {
       setSelectedCell(null);
-      setPanelOpen(false);
       setLockedCell(null);
       setFocusedPlaceId(null);
     }
@@ -163,7 +150,6 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const handleCellSizeChange = useCallback(
     (value: number) => {
       setCellSize(value);
-      setPanelOpen(false);
       if (mode !== "selection") setSelectedCell(null);
     },
     [mode],
@@ -172,7 +158,6 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const handleRadiusChange = useCallback(
     (value: number) => {
       setRadius(value);
-      setPanelOpen(false);
       if (mode !== "selection") setSelectedCell(null);
     },
     [mode],
@@ -188,7 +173,6 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
 
   const handleCompetitorSelect = useCallback((placeId: string) => {
     setFocusedPlaceId(placeId);
-    setPanelOpen(true);
   }, []);
 
   const error =
@@ -217,7 +201,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         onViewportChange={handleViewportChange}
       />
       <CellDetailPanel
-        cell={panelOpen ? selectedCell : null}
+        cell={selectedCell}
         competitorArea={competitorArea}
         radius={radius}
         businessType={businessType}
@@ -228,7 +212,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
           competitors.error instanceof Error ? competitors.error : null
         }
         focusedPlaceId={focusedPlaceId}
-        onClose={handlePanelClose}
+        onClearCell={handleClearSelection}
       />
       <ControlPanel
         isDark={isDark}

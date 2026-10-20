@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Copy,
   Loader2,
+  SquareDashed,
   X,
 } from "lucide-react";
 import {
@@ -46,7 +47,7 @@ interface CellDetailPanelProps {
   competitorsFetching: boolean;
   competitorsError: Error | null;
   focusedPlaceId: string | null;
-  onClose: () => void;
+  onClearCell: () => void;
 }
 
 interface CellPlace extends PlaceCardData {
@@ -89,7 +90,7 @@ export function CellDetailPanel({
   competitorsFetching,
   competitorsError,
   focusedPlaceId,
-  onClose,
+  onClearCell,
 }: CellDetailPanelProps) {
   const { data, isFetching, error } = useCellPois(cell, radius);
   const [copied, setCopied] = useState(false);
@@ -231,32 +232,35 @@ export function CellDetailPanel({
     }
   };
 
-  if (!cell) return null;
-
   return (
     <Card className="absolute top-5 bottom-5 left-5 z-10 flex w-[250px] flex-col overflow-hidden">
       <CardHeader className="flex-row items-start justify-between gap-3 border-b pb-3">
         <div className="space-y-1">
           <CardTitle>Hot zone</CardTitle>
           <p className="text-xs text-muted-foreground">
-            {isFetching
-              ? "Loading places…"
-              : `${totalPlaces} places within ${radius} m`}
+            {cell
+              ? isFetching
+                ? "Loading places…"
+                : `${totalPlaces} places within ${radius} m`
+              : "No cell selected"}
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          <Badge className="border-transparent bg-primary text-primary-foreground">
-            {cell.score.toFixed(0)}
-          </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <X />
-          </Button>
-        </div>
+        {cell && (
+          <div className="flex items-center gap-1">
+            <Badge className="border-transparent bg-primary text-primary-foreground">
+              {cell.score.toFixed(0)}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Clear selected cell"
+              title="Clear selected cell"
+              onClick={onClearCell}
+            >
+              <X />
+            </Button>
+          </div>
+        )}
       </CardHeader>
 
       <div className="space-y-1 border-b px-4 py-2">
@@ -289,110 +293,124 @@ export function CellDetailPanel({
         </div>
       </div>
 
-      <CardContent className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto pt-4 pr-1.5 pl-4 [scrollbar-gutter:stable]">
-        {businessType && businessTypeOption && (
-          <section className="space-y-2 border-b pb-4">
-            <div className="flex flex-wrap items-center justify-between gap-1">
-              <p className="text-xs font-semibold">
-                {competitorPlaces.length} {competitorNoun} within {radius} m
-              </p>
-              {nearestCompetitor !== null && (
-                <Badge className="border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300">
-                  Nearest {formatDistance(nearestCompetitor)}
-                </Badge>
+      {!cell ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+          <div className="flex size-11 items-center justify-center rounded-full border bg-muted text-muted-foreground">
+            <SquareDashed className="size-5" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Select a cell</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Click any hot-zone cell on the map to see its places.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <CardContent className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto pt-4 pr-1.5 pl-4 [scrollbar-gutter:stable]">
+          {businessType && businessTypeOption && (
+            <section className="space-y-2 border-b pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-1">
+                <p className="text-xs font-semibold">
+                  {competitorPlaces.length} {competitorNoun} within {radius} m
+                </p>
+                {nearestCompetitor !== null && (
+                  <Badge className="border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300">
+                    Nearest {formatDistance(nearestCompetitor)}
+                  </Badge>
+                )}
+              </div>
+
+              {competitorsError ? (
+                <p className="text-xs text-destructive">
+                  {competitorsError.message}
+                </p>
+              ) : competitorsFetching ? (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Finding {businessTypeOption.plural}…
+                </p>
+              ) : competitorPlaces.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No competitors found within {radius} m.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {competitorPlaces.map((place) => (
+                    <PlaceCard
+                      key={place.id}
+                      place={place}
+                      icon={BUSINESS_TYPE_ICONS[place.type]}
+                      accentColor={COMPETITOR_COLOR}
+                      highlighted={place.id === focusedPlaceId}
+                    />
+                  ))}
+                </div>
               )}
+            </section>
+          )}
+
+          <section className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold">All places</p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={totalPlaces === 0}
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+                {copied ? "Copied" : "Copy names"}
+              </Button>
             </div>
 
-            {competitorsError ? (
+            {error ? (
               <p className="text-xs text-destructive">
-                {competitorsError.message}
+                {error instanceof Error ? error.message : "Could not load places."}
               </p>
-            ) : competitorsFetching ? (
+            ) : groups.length === 0 ? (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="size-3.5 animate-spin" />
-                Finding {businessTypeOption.plural}…
-              </p>
-            ) : competitorPlaces.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No competitors found within {radius} m.
+                {isFetching && <Loader2 className="size-3.5 animate-spin" />}
+                {isFetching ? "Loading places…" : "No places in range."}
               </p>
             ) : (
-              <div className="space-y-2">
-                {competitorPlaces.map((place) => (
-                  <PlaceCard
-                    key={place.id}
-                    place={place}
-                    icon={BUSINESS_TYPE_ICONS[place.type]}
-                    accentColor={COMPETITOR_COLOR}
-                    highlighted={place.id === focusedPlaceId}
-                  />
+              <div className="space-y-4">
+                {groups.map((group) => (
+                  <section key={group.category} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 text-xs font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="size-2 rounded-full"
+                          style={{
+                            backgroundColor: CATEGORY_COLORS[group.category],
+                          }}
+                        />
+                        {CATEGORY_LABELS[group.category]}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {group.places.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {group.places.map((place) => (
+                        <PlaceCard
+                          key={place.id}
+                          place={place}
+                          icon={CATEGORY_ICONS[group.category]}
+                          accentColor={CATEGORY_COLORS[group.category]}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 ))}
               </div>
             )}
           </section>
-        )}
-
-        <section className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold">All places</p>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={totalPlaces === 0}
-              onClick={handleCopy}
-            >
-              {copied ? (
-                <Check className="size-3.5" />
-              ) : (
-                <Copy className="size-3.5" />
-              )}
-              {copied ? "Copied" : "Copy names"}
-            </Button>
-          </div>
-
-          {error ? (
-            <p className="text-xs text-destructive">
-              {error instanceof Error ? error.message : "Could not load places."}
-            </p>
-          ) : groups.length === 0 ? (
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              {isFetching && <Loader2 className="size-3.5 animate-spin" />}
-              {isFetching ? "Loading places…" : "No places in range."}
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {groups.map((group) => (
-                <section key={group.category} className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 text-xs font-medium">
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{
-                          backgroundColor: CATEGORY_COLORS[group.category],
-                        }}
-                      />
-                      {CATEGORY_LABELS[group.category]}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {group.places.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {group.places.map((place) => (
-                      <PlaceCard
-                        key={place.id}
-                        place={place}
-                        icon={CATEGORY_ICONS[group.category]}
-                        accentColor={CATEGORY_COLORS[group.category]}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
-        </section>
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }

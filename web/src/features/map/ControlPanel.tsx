@@ -1,4 +1,4 @@
-import { Loader2, Moon, Sun } from "lucide-react";
+import { Loader2, Moon, Scan, Sun } from "lucide-react";
 import { POI_CATEGORIES, type PoiCategory } from "@spero/shared";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -11,6 +11,7 @@ import {
 } from "../../components/ui/card";
 import { Slider } from "../../components/ui/slider";
 import { Switch } from "../../components/ui/switch";
+import { cn } from "../../lib/utils";
 import {
   BASEMAPS,
   CATEGORY_COLORS,
@@ -96,7 +97,7 @@ export function ControlPanel({
         </div>
       </CardHeader>
 
-      <CardContent className="max-h-[calc(100svh-10rem)] space-y-5 overflow-y-auto">
+      <CardContent className="thin-scrollbar max-h-[calc(100svh-10rem)] space-y-5 overflow-y-auto">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {isFetching && <Loader2 className="size-3.5 animate-spin" />}
           <span>
@@ -113,24 +114,33 @@ export function ControlPanel({
         )}
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">Mode</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              size="sm"
-              variant={mode === "normal" ? "default" : "outline"}
-              aria-pressed={mode === "normal"}
-              onClick={() => onModeChange("normal")}
-            >
-              Normal
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === "selection" ? "default" : "outline"}
-              aria-pressed={mode === "selection"}
-              onClick={() => onModeChange("selection")}
-            >
-              Selection
-            </Button>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">Mode</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {mode === "selection" ? "Selection" : "Normal"}
+              </span>
+              <Button
+                size="icon"
+                variant={mode === "selection" ? "default" : "outline"}
+                aria-pressed={mode === "selection"}
+                aria-label={
+                  mode === "selection"
+                    ? "Turn off selection mode"
+                    : "Turn on selection mode"
+                }
+                title={
+                  mode === "selection"
+                    ? "Selection mode on: click a cell to keep it outlined"
+                    : "Selection mode off: normal map behaviour"
+                }
+                onClick={() =>
+                  onModeChange(mode === "selection" ? "normal" : "selection")
+                }
+              >
+                <Scan />
+              </Button>
+            </div>
           </div>
           {mode === "selection" && (
             <p className="text-xs text-muted-foreground">
@@ -144,17 +154,51 @@ export function ControlPanel({
         <div className="space-y-2">
           <p className="text-sm font-medium">Basemap</p>
           <div className="grid grid-cols-3 gap-2">
-            {BASEMAPS.map((option) => (
-              <Button
-                key={option.id}
-                size="sm"
-                variant={basemap === option.id ? "default" : "outline"}
-                aria-pressed={basemap === option.id}
-                onClick={() => onBasemapChange(option.id)}
-              >
-                {option.label}
-              </Button>
-            ))}
+            {BASEMAPS.map((option) => {
+              const active = basemap === option.id;
+
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={active}
+                  aria-label={`${option.label} basemap`}
+                  title={`${option.label} basemap`}
+                  onClick={() => onBasemapChange(option.id)}
+                  className={cn(
+                    "group relative aspect-square overflow-hidden rounded-lg border border-border/60 bg-muted p-0 text-left shadow-lg transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
+                    active &&
+                      "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute inset-0",
+                      option.id === "dark"
+                        ? "bg-slate-900"
+                        : option.id === "osm"
+                          ? "bg-amber-100"
+                          : "bg-slate-100",
+                    )}
+                  />
+                  <img
+                    src={option.previewUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    className="relative size-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.style.visibility = "hidden";
+                    }}
+                  />
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-1.5 pt-4 pb-1 text-[10px] leading-none font-medium text-white">
+                    {option.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
