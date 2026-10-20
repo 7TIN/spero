@@ -1,8 +1,5 @@
-import type { Bbox, BusinessTypeId, PoiCategory } from "@spero/shared";
-import {
-  getBusinessType,
-  type BusinessTypeSource,
-} from "../config/business-types";
+import type { Bbox, PoiCategory } from "@spero/shared";
+import type { BusinessTypeSource } from "../config/business-types";
 import {
   OVERPASS_COOLDOWN_MS,
   OVERPASS_ENDPOINT_RETRY_DELAY_MS,
@@ -47,6 +44,22 @@ const KEY_PATTERN =
 
 const VALUE_PATTERN =
   "^(college|university|school|hospital|clinic|bus_station|marketplace|place_of_worship|bank|townhall|cinema|theatre|restaurant|cafe|fast_food|station|mall|supermarket|hotel|guest_house|government)$";
+
+/** Business-like tags considered by a free-text custom business search. */
+const CUSTOM_NAME_KEYS = [
+  "shop",
+  "amenity",
+  "office",
+  "tourism",
+  "leisure",
+  "healthcare",
+  "craft",
+  "club",
+];
+
+function escapeOverpassRegex(value: string): string {
+  return value.replace(/[\\^$.*+?()[\]{}|"]/g, "\\$&");
+}
 
 interface OverpassElement {
   type: "node" | "way" | "relation";
@@ -197,9 +210,19 @@ function buildQuery(bbox: Bbox): string {
 }
 
 function buildTypeQuery(bbox: Bbox, source: BusinessTypeSource): string {
-  const selectors = source.osmTags
-    .map(({ key, value }) => `nwr["${key}"="${value}"]${bboxClause(bbox)};`)
-    .join("\n");
+  let selectors: string;
+
+  if (source.nameQuery) {
+    const namePattern = escapeOverpassRegex(source.nameQuery);
+    selectors = CUSTOM_NAME_KEYS.map(
+      (key) =>
+        `nwr["${key}"]["name"~"${namePattern}",i]${bboxClause(bbox)};`,
+    ).join("\n");
+  } else {
+    selectors = source.osmTags
+      .map(({ key, value }) => `nwr["${key}"="${value}"]${bboxClause(bbox)};`)
+      .join("\n");
+  }
 
   return [
     `[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_S}];`,
@@ -253,9 +276,16 @@ function parsePlaceElements(
   for (const element of response.elements ?? []) {
     if (!element.tags) continue;
 
-    const matches = source.osmTags.some(
-      (tag) => element.tags?.[tag.key] === tag.value,
-    );
+    const name = firstValue(element.tags.name, element.tags["name:en"]);
+    const matches =
+      source.osmTags.length > 0
+        ? source.osmTags.some(
+            (tag) => element.tags?.[tag.key] === tag.value,
+          )
+        : Boolean(
+            source.nameQuery &&
+              name?.toLowerCase().includes(source.nameQuery.toLowerCase()),
+          );
     if (!matches) continue;
 
     const point = coordinates(element);
@@ -266,7 +296,7 @@ function parsePlaceElements(
     places.set(placeId, {
       placeId,
       type: source.id,
-      name: firstValue(element.tags.name, element.tags["name:en"]),
+      name,
       lng,
       lat,
       ...detailsFromTags(element.tags),
@@ -373,9 +403,8 @@ export async function fetchPoisForBbox(bbox: Bbox): Promise<OverpassPoi[]> {
 /** Fetch places of one business type for the competitor list. */
 export async function fetchPlacesForType(
   bbox: Bbox,
-  type: BusinessTypeId,
+  source: BusinessTypeSource,
 ): Promise<SourcePlace[]> {
-  const source = getBusinessType(type);
   const response = await requestOverpass(buildTypeQuery(bbox, source));
   return parsePlaceElements(response, source);
 }

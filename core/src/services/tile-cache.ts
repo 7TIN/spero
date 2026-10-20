@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import type { Bbox, BusinessTypeId, PoiCategory } from "@spero/shared";
+import type { Bbox, BusinessPlaceType, PoiCategory } from "@spero/shared";
 import { TILE_CACHE_PATH, TILE_TTL_MS } from "../config/cache";
 import { GEOAPIFY_FREE_DAILY_CREDITS, POI_PROVIDER } from "../config/poi";
 import { tileKey, type Tile } from "../lib/tiles";
@@ -38,7 +38,7 @@ interface PoiRow {
 
 interface CompetitorRow {
   place_id: string;
-  type: BusinessTypeId;
+  type: BusinessPlaceType;
   name: string | null;
   raw_category: string | null;
   address: string | null;
@@ -306,7 +306,7 @@ export function readPoisInBbox(bbox: Bbox): StoredPoi[] {
 /** Keys of the competitor tiles cached for one type and still fresh. */
 export function getFreshCompetitorTiles(
   tiles: Tile[],
-  type: BusinessTypeId,
+  type: BusinessPlaceType,
 ): Set<string> {
   const db = getDatabase();
   const statement = db.query<TileRow, [number, number, string]>(
@@ -329,7 +329,7 @@ export function getFreshCompetitorTiles(
 /** Whether a competitor tile has a cached row for this type, fresh or stale. */
 export function hasCompetitorTile(
   tile: Tile,
-  type: BusinessTypeId,
+  type: BusinessPlaceType,
 ): boolean {
   const row = getDatabase()
     .query<{ one: number }, [number, number, string]>(
@@ -344,7 +344,7 @@ export function hasCompetitorTile(
 /** Replace the cached competitors of a tile and type with a fresh fetch. */
 export function saveCompetitorTile(
   tile: Tile,
-  type: BusinessTypeId,
+  type: BusinessPlaceType,
   places: SourcePlace[],
 ): void {
   const db = getDatabase();
@@ -416,7 +416,7 @@ export function saveCompetitorTile(
 /** Cached competitors of one type inside a bbox. */
 export function readCompetitorsInBbox(
   bbox: Bbox,
-  type: BusinessTypeId,
+  type: BusinessPlaceType,
 ): StoredPlace[] {
   const rows = getDatabase()
     .query<CompetitorRow, [number, number, number, number, string]>(

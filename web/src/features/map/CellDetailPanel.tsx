@@ -11,8 +11,12 @@ import {
 } from "lucide-react";
 import {
   BUSINESS_TYPE_OPTIONS,
+  CUSTOM_BUSINESS_LABEL_MAX_LENGTH,
+  CUSTOM_BUSINESS_TYPE,
   isBusinessTypeId,
+  type BusinessPlaceType,
   type BusinessTypeId,
+  type BusinessTypeOption,
   type PoiCategory,
   type PlaceFeatureCollection,
 } from "@spero/shared";
@@ -33,10 +37,7 @@ import {
 } from "./constants";
 import { haversineMeters } from "./geo";
 import { cn } from "../../lib/utils";
-import {
-  BUSINESS_TYPE_ICONS,
-  CATEGORY_ICONS,
-} from "./place-icons";
+import { businessTypeIcon, CATEGORY_ICONS } from "./place-icons";
 import { formatDistance, type PlaceCardData } from "./place-format";
 import { PlaceCard } from "./PlaceCard";
 import type { PinnedCell, SelectedCell } from "./types";
@@ -49,7 +50,10 @@ interface CellDetailPanelProps {
   viewCenter: { lng: number; lat: number } | null;
   radius: number;
   businessType: BusinessTypeId | null;
+  customBusinessLabel: string | null;
   onBusinessTypeChange: (type: BusinessTypeId | null) => void;
+  onCustomBusinessChange: (label: string | null) => void;
+  enabledCategories: PoiCategory[];
   competitors?: PlaceFeatureCollection;
   competitorsFetching: boolean;
   competitorsError: Error | null;
@@ -74,7 +78,7 @@ interface CategoryGroup {
 }
 
 interface CompetitorPlace extends PlaceCardData {
-  type: BusinessTypeId;
+  type: BusinessPlaceType;
 }
 
 const UNNAMED_PLACE = "Unnamed place";
@@ -95,7 +99,7 @@ function toCardData(
 }
 
 interface CompetitorSectionProps {
-  option: (typeof BUSINESS_TYPE_OPTIONS)[number];
+  option: BusinessTypeOption;
   places: CompetitorPlace[];
   visiblePlaces: CompetitorPlace[];
   scope: "area" | "view";
@@ -115,7 +119,12 @@ function CompetitorSection({
   error,
   focusedPlaceId,
 }: CompetitorSectionProps) {
-  const noun = places.length === 1 ? option.label.toLowerCase() : option.plural;
+  const isCustom = option.id === CUSTOM_BUSINESS_TYPE;
+  const noun = isCustom
+    ? `${option.label} ${places.length === 1 ? "result" : "results"}`
+    : places.length === 1
+      ? option.label.toLowerCase()
+      : option.plural;
   const nearest = places[0]?.distanceMeters ?? null;
 
   return (
@@ -137,11 +146,12 @@ function CompetitorSection({
       ) : fetching ? (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" />
-          Finding {option.plural}…
+          Finding {isCustom ? "matches" : option.plural}…
         </p>
       ) : places.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No competitors found {scope === "area" ? `within ${radius} m` : "in this view"}.
+          No {isCustom ? "matching places" : "competitors"} found{" "}
+          {scope === "area" ? `within ${radius} m` : "in this view"}.
         </p>
       ) : (
         <>
@@ -150,7 +160,7 @@ function CompetitorSection({
               <PlaceCard
                 key={place.id}
                 place={place}
-                icon={BUSINESS_TYPE_ICONS[place.type]}
+                icon={businessTypeIcon(place.type)}
                 accentColor={COMPETITOR_COLOR}
                 highlighted={place.id === focusedPlaceId}
               />
@@ -173,7 +183,10 @@ export function CellDetailPanel({
   viewCenter,
   radius,
   businessType,
+  customBusinessLabel,
   onBusinessTypeChange,
+  onCustomBusinessChange,
+  enabledCategories,
   competitors,
   competitorsFetching,
   competitorsError,
@@ -187,8 +200,14 @@ export function CellDetailPanel({
   onSelectPin,
   onRemovePin,
 }: CellDetailPanelProps) {
-  const { data, isFetching, error } = useCellPois(cell, radius);
+  const { data, isFetching, error } = useCellPois(
+    cell,
+    radius,
+    enabledCategories,
+  );
   const [copied, setCopied] = useState(false);
+  const [customDraft, setCustomDraft] = useState(customBusinessLabel ?? "");
+  const customOpen = customBusinessLabel !== null;
 
   const groups = useMemo<CategoryGroup[]>(() => {
     if (!cell || !data) return [];
@@ -310,9 +329,20 @@ export function CellDetailPanel({
     0,
   );
 
-  const businessTypeOption = businessType
-    ? BUSINESS_TYPE_OPTIONS.find((option) => option.id === businessType)
-    : null;
+  const businessTypeOption = useMemo<BusinessTypeOption | null>(() => {
+    if (customBusinessLabel) {
+      return {
+        id: CUSTOM_BUSINESS_TYPE,
+        label: customBusinessLabel,
+        plural: customBusinessLabel,
+      };
+    }
+    if (!businessType) return null;
+    return (
+      BUSINESS_TYPE_OPTIONS.find((option) => option.id === businessType) ??
+      null
+    );
+  }, [businessType, customBusinessLabel]);
 
   useEffect(() => {
     if (!focusedPlaceId) return;
@@ -347,14 +377,16 @@ export function CellDetailPanel({
       <CardHeader className="flex-row items-start justify-between gap-3 border-b pb-3">
         <div className="space-y-1">
           <CardTitle>
-            {businessType && !cell ? "Competitors" : "Hot zone"}
+            {businessTypeOption && !cell ? "Competitors" : "Hot zone"}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
             {cell
               ? isFetching
                 ? "Loading places…"
-                : `${totalPlaces} places within ${radius} m`
-              : businessType
+                : enabledCategories.length === 0
+                  ? "No place categories selected"
+                  : `${totalPlaces} places within ${radius} m`
+              : businessTypeOption
                 ? "Standalone layer · current view"
                 : "No cell selected"}
           </p>
@@ -407,13 +439,19 @@ export function CellDetailPanel({
         <div className="relative">
           <select
             id="business-type"
-            value={businessType ?? ""}
+            value={customOpen ? CUSTOM_BUSINESS_TYPE : (businessType ?? "")}
             className="h-8 w-full appearance-none rounded-md border bg-background px-2 pr-7 text-xs shadow-ace outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onChange={(event) => {
               const value = event.target.value;
-              onBusinessTypeChange(
-                isBusinessTypeId(value) ? value : null,
-              );
+              if (value === CUSTOM_BUSINESS_TYPE) {
+                setCustomDraft(customBusinessLabel ?? "");
+                onBusinessTypeChange(null);
+                onCustomBusinessChange("");
+                return;
+              }
+
+              setCustomDraft("");
+              onBusinessTypeChange(isBusinessTypeId(value) ? value : null);
             }}
           >
             <option value="">No business type</option>
@@ -422,9 +460,44 @@ export function CellDetailPanel({
                 {option.label}
               </option>
             ))}
+            <option value={CUSTOM_BUSINESS_TYPE}>
+              {customBusinessLabel || "Create new…"}
+            </option>
           </select>
           <ChevronDown className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
         </div>
+
+        {customOpen && (
+          <form
+            className="flex items-center gap-1.5 pt-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const label = customDraft.trim();
+              if (label.length < 2) return;
+              setCustomDraft(label);
+              onBusinessTypeChange(null);
+              onCustomBusinessChange(label);
+            }}
+          >
+            <input
+              value={customDraft}
+              onChange={(event) => setCustomDraft(event.target.value)}
+              maxLength={CUSTOM_BUSINESS_LABEL_MAX_LENGTH}
+              placeholder="e.g. Pet store"
+              aria-label="Custom business type"
+              className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs shadow-ace outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="h-8 px-2 text-[11px]"
+              disabled={customDraft.trim().length < 2}
+            >
+              Compare
+            </Button>
+          </form>
+        )}
       </div>
 
       {pinnedCells.length > 0 && (
@@ -490,7 +563,6 @@ export function CellDetailPanel({
       )}
 
       {!cell ? (
-        businessType &&
         businessTypeOption &&
         competitorScope === "view" &&
         competitorCenter ? (
@@ -522,7 +594,7 @@ export function CellDetailPanel({
         )
       ) : (
         <CardContent className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto pt-4 pr-1.5 pl-4 [scrollbar-gutter:stable]">
-          {businessType && businessTypeOption && competitorScope && (
+          {businessTypeOption && competitorScope && (
             <CompetitorSection
               option={businessTypeOption}
               places={competitorPlaces}
@@ -537,7 +609,7 @@ export function CellDetailPanel({
 
           <section className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold">All places</p>
+              <p className="text-xs font-semibold">Selected places</p>
               <Button
                 size="sm"
                 variant="outline"
@@ -560,7 +632,11 @@ export function CellDetailPanel({
             ) : groups.length === 0 ? (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 {isFetching && <Loader2 className="size-3.5 animate-spin" />}
-                {isFetching ? "Loading places…" : "No places in range."}
+                {isFetching
+                  ? "Loading places…"
+                  : enabledCategories.length === 0
+                    ? "No place categories selected."
+                    : "No places in range."}
               </p>
             ) : (
               <div className="space-y-4">

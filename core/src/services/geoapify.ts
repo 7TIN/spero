@@ -1,5 +1,5 @@
-import type { Bbox, BusinessTypeId, PoiCategory } from "@spero/shared";
-import { getBusinessType } from "../config/business-types";
+import type { Bbox, PoiCategory } from "@spero/shared";
+import type { BusinessTypeSource } from "../config/business-types";
 import {
   GEOAPIFY_API_KEY,
   GEOAPIFY_MAX_PAGES,
@@ -222,6 +222,7 @@ function buildUrl(
   bbox: Bbox,
   categories: string,
   offset: number,
+  name?: string,
 ): string {
   const params = new URLSearchParams({
     categories,
@@ -230,6 +231,7 @@ function buildUrl(
     offset: String(offset),
     apiKey: GEOAPIFY_API_KEY,
   });
+  if (name) params.set("name", name);
 
   return `${GEOAPIFY_URL}?${params.toString()}`;
 }
@@ -252,11 +254,12 @@ async function requestPage(
   bbox: Bbox,
   categories: string,
   offset: number,
+  name?: string,
 ): Promise<GeoapifyResponse> {
   let response: Response;
 
   try {
-    response = await fetch(buildUrl(bbox, categories, offset), {
+    response = await fetch(buildUrl(bbox, categories, offset, name), {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(GEOAPIFY_REQUEST_TIMEOUT_MS),
     });
@@ -355,11 +358,10 @@ export async function fetchPoisForBbox(bbox: Bbox): Promise<SourcePoi[]> {
 /** Fetch places of one business type for the competitor list. */
 export async function fetchPlacesForType(
   bbox: Bbox,
-  type: BusinessTypeId,
+  source: BusinessTypeSource,
 ): Promise<SourcePlace[]> {
   requireApiKey();
 
-  const source = getBusinessType(type);
   const categories = source.geoapifyCategories.join(",");
   const places = new Map<string, SourcePlace>();
 
@@ -368,6 +370,7 @@ export async function fetchPlacesForType(
       bbox,
       categories,
       page * GEOAPIFY_PAGE_SIZE,
+      source.nameQuery,
     );
     const features = response.features ?? [];
 
@@ -383,7 +386,7 @@ export async function fetchPlacesForType(
 
       places.set(placeId, {
         placeId,
-        type,
+        type: source.id,
         name: firstValue(properties.name),
         lng,
         lat,

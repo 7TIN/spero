@@ -14,8 +14,8 @@ placesRoute.get("/", async (c) => {
     );
   }
 
-  const { bbox, type } = parsed.data;
-  const data = await getPlaces({ bbox, type });
+  const { bbox, type, label } = parsed.data;
+  const data = await getPlaces({ bbox, type, label });
 
   return c.json(data);
 });

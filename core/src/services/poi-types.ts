@@ -1,4 +1,4 @@
-import type { BusinessTypeId, PoiCategory } from "@spero/shared";
+import type { BusinessPlaceType, PoiCategory } from "@spero/shared";
 
 /** Optional fields filled from the provider when the source data has them. */
 export interface PlaceDetails {
@@ -24,7 +24,7 @@ export interface SourcePoi extends PlaceDetails {
 /** A competitor place fetched for one business type. */
 export interface SourcePlace extends PlaceDetails {
   placeId: string;
-  type: BusinessTypeId;
+  type: BusinessPlaceType;
   name: string | null;
   lng: number;
   lat: number;

@@ -25,7 +25,7 @@ bun install
 ## Data (hosted provider + local cache)
 
 No database to run, no OSM extract to download, and nothing to self-host.
-Phase 2 reads crowd POIs and competitor places from the hosted
+Spero reads crowd POIs and competitor places from the hosted
 [Geoapify Places API](https://www.geoapify.com/places-api/) and caches them in a
 local SQLite file (`bun:sqlite`):
 
@@ -46,6 +46,11 @@ cp core/.env.example core/.env
   and each competitor business type have separate tile sets. A cold crowd
   refresh costs roughly 26–51 credits (500–1,000 places); a competitor refresh
   usually costs far less because it asks for one category.
+- The left panel list and the map dots follow the **Places** switches on the
+  right. Enabling only hospital, for example, lists and draws only hospitals.
+- **Compare with** offers the preset business types plus **Create new…** for any
+  user-entered business. Common labels such as pet store or bookstore map to
+  provider categories; unknown labels fall back to a provider name search.
 - `/health` reports today's estimated Geoapify credits and the free-plan limit.
 - Switching providers or changing the cached place shape clears the cache
   automatically, so results from different providers are never mixed.
@@ -76,7 +81,7 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 
 Without `GEMINI_API_KEY`, `/api/agent` uses a deterministic quick planner that
 handles common locations, business types, categories, basemaps, and range
-controls. The chat response labels which planner produced it. The agent can:
+controls. The agent can:
 
 - move the map to a city, neighbourhood, or address;
 - switch the competitor business type and show competitors in the new view;
@@ -120,13 +125,15 @@ before deploying.
 | GET    | `/api/hotzones?bbox=minLng,minLat,maxLng,maxLat&cell=250&radius=500` | GeoJSON grid cells with `score` and `breakdown` |
 | GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital` | GeoJSON POIs with `name`, `category`, and place details |
 | GET    | `/api/places?bbox=minLng,minLat,maxLng,maxLat&type=cafe` | GeoJSON competitor places for one business type |
+| GET    | `/api/places?bbox=minLng,minLat,maxLng,maxLat&type=custom&label=Pet%20store` | GeoJSON competitor places for a user-entered business |
 | GET    | `/api/geocode?q=Koregaon%20Park&limit=5`                  | Address/place search results with coordinates and optional bounds |
 | POST   | `/api/agent`                                              | Validated map-control plan for a natural-language request |
 
 `bbox` must span no more than about 15 km in either direction; larger requests
 return `400`. An unknown `type` on `/api/places` also returns `400`. Supported
-types are `cafe`, `restaurant`, `pharmacy`, `gym`, `salon`, `bakery`, `grocery`,
-`clothing`, `electronics`, and `bank`.
+preset types are `cafe`, `restaurant`, `pharmacy`, `gym`, `salon`, `bakery`,
+`grocery`, `clothing`, `electronics`, and `bank`. Use `type=custom&label=...`
+for a user-entered business; the label must be 2–60 characters.
 
 `POST /api/agent` accepts `{ "query": "...", "context": { ... } }` where
 `context` is the current view, selection, filters, and range controls. It

@@ -1,8 +1,7 @@
-import { Store } from "lucide-react";
 import type { PlaceFeatureCollection } from "@spero/shared";
 import { Marker } from "react-map-gl/maplibre";
 import { COMPETITOR_COLOR } from "./constants";
-import { BUSINESS_TYPE_ICONS } from "./place-icons";
+import { businessTypeIcon } from "./place-icons";
 
 interface CompetitorLayerProps {
   data?: PlaceFeatureCollection;
@@ -27,7 +26,7 @@ export function CompetitorLayer({
       {data.features.map((feature) => {
         const [longitude, latitude] = feature.geometry.coordinates;
         const properties = feature.properties;
-        const Icon = BUSINESS_TYPE_ICONS[properties.type] ?? Store;
+        const Icon = businessTypeIcon(properties.type);
         const focused = properties.id === focusedPlaceId;
 
         return (

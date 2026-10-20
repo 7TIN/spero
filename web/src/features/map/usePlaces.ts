@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type {
   Bbox,
-  BusinessTypeId,
+  BusinessSelection,
   PlaceFeatureCollection,
 } from "@spero/shared";
 import { fetchPlaces } from "./api";
@@ -14,19 +14,22 @@ import type { SelectedCell } from "./types";
  */
 export function usePlaces(
   area: SelectedCell | null,
-  type: BusinessTypeId | null,
+  selection: BusinessSelection | null,
   radius: number,
 ) {
   const bbox =
-    area && type ? bboxAround(area.centerLng, area.centerLat, radius) : null;
+    area && selection
+      ? bboxAround(area.centerLng, area.centerLat, radius)
+      : null;
+  const label = selection?.label ?? null;
 
   return useQuery({
-    queryKey: ["places", "area", type, bbox],
+    queryKey: ["places", "area", selection?.type ?? null, label, bbox],
     queryFn: ({ signal }): Promise<PlaceFeatureCollection> => {
-      if (!bbox || !type) throw new Error("area and type are required");
-      return fetchPlaces({ bbox, type, signal });
+      if (!bbox || !selection) throw new Error("area and type are required");
+      return fetchPlaces({ bbox, selection, signal });
     },
-    enabled: bbox !== null && type !== null,
+    enabled: bbox !== null && selection !== null,
     staleTime: 30_000,
     // Overpass already tries several endpoints; do not add request retries.
     retry: false,
@@ -41,15 +44,17 @@ export function usePlaces(
  */
 export function usePlacesInBbox(
   bbox: Bbox | null,
-  type: BusinessTypeId | null,
+  selection: BusinessSelection | null,
 ) {
+  const label = selection?.label ?? null;
+
   return useQuery({
-    queryKey: ["places", "view", type, bbox],
+    queryKey: ["places", "view", selection?.type ?? null, label, bbox],
     queryFn: ({ signal }): Promise<PlaceFeatureCollection> => {
-      if (!bbox || !type) throw new Error("bbox and type are required");
-      return fetchPlaces({ bbox, type, signal });
+      if (!bbox || !selection) throw new Error("bbox and type are required");
+      return fetchPlaces({ bbox, selection, signal });
     },
-    enabled: bbox !== null && type !== null,
+    enabled: bbox !== null && selection !== null,
     staleTime: 30_000,
     retry: false,
     refetchOnWindowFocus: false,

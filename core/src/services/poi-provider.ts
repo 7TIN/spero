@@ -1,4 +1,5 @@
-import type { Bbox, BusinessTypeId } from "@spero/shared";
+import type { Bbox } from "@spero/shared";
+import type { BusinessTypeSource } from "../config/business-types";
 import { POI_PROVIDER } from "../config/poi";
 import {
   fetchPlacesForType as fetchPlacesFromGeoapify,
@@ -20,9 +21,9 @@ export function fetchPoisForBbox(bbox: Bbox): Promise<SourcePoi[]> {
 /** Fetch competitors of one business type from the configured provider. */
 export function fetchPlacesForType(
   bbox: Bbox,
-  type: BusinessTypeId,
+  source: BusinessTypeSource,
 ): Promise<SourcePlace[]> {
   return POI_PROVIDER === "geoapify"
-    ? fetchPlacesFromGeoapify(bbox, type)
-    : fetchPlacesFromOverpass(bbox, type);
+    ? fetchPlacesFromGeoapify(bbox, source)
+    : fetchPlacesFromOverpass(bbox, source);
 }

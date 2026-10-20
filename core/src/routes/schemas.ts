@@ -1,11 +1,15 @@
 import { z } from "zod";
 import {
   BASEMAP_IDS,
+  CUSTOM_BUSINESS_LABEL_MAX_LENGTH,
+  CUSTOM_BUSINESS_TYPE,
   isBusinessTypeId,
+  isBusinessTypeKey,
   POI_CATEGORIES,
   SELECTION_MODES,
   type Bbox,
   type BusinessTypeId,
+  type BusinessTypeKey,
   type PoiCategory,
 } from "@spero/shared";
 import {
@@ -106,15 +110,34 @@ export const poisQuerySchema = z
     return { bbox: query.bbox, categories: requested as PoiCategory[] };
   });
 
-const businessTypeSchema = z.custom<BusinessTypeId>(
-  (value) => typeof value === "string" && isBusinessTypeId(value),
+const businessSelectionTypeSchema = z.custom<BusinessTypeKey>(
+  (value) => typeof value === "string" && isBusinessTypeKey(value),
   { message: "unknown business type" },
 );
 
-export const placesQuerySchema = z.object({
-  bbox: bboxSchema,
-  type: businessTypeSchema,
-});
+export const placesQuerySchema = z
+  .object({
+    bbox: bboxSchema,
+    type: businessSelectionTypeSchema,
+    label: z
+      .string()
+      .trim()
+      .min(2, "custom business needs at least two characters")
+      .max(
+        CUSTOM_BUSINESS_LABEL_MAX_LENGTH,
+        "custom business label is too long",
+      )
+      .optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.type === CUSTOM_BUSINESS_TYPE && !value.label) {
+      ctx.addIssue({
+        code: "custom",
+        message: "custom business needs a label",
+        path: ["label"],
+      });
+    }
+  });
 
 export const geocodeQuerySchema = z.object({
   q: z

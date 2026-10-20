@@ -2,7 +2,7 @@ import type {
   AgentContext,
   AgentResponse,
   Bbox,
-  BusinessTypeId,
+  BusinessSelection,
   GeocodeResponse,
   HotzoneFeatureCollection,
   PlaceFeatureCollection,
@@ -83,19 +83,20 @@ export function fetchPois({
 
 export interface FetchPlacesParams {
   bbox: Bbox;
-  type: BusinessTypeId;
+  selection: BusinessSelection;
   signal?: AbortSignal;
 }
 
 export function fetchPlaces({
   bbox,
-  type,
+  selection,
   signal,
 }: FetchPlacesParams): Promise<PlaceFeatureCollection> {
   const params = new URLSearchParams({
     bbox: bboxParam(bbox),
-    type,
+    type: selection.type,
   });
+  if (selection.label) params.set("label", selection.label);
 
   return request<PlaceFeatureCollection>("/api/places", params, signal);
 }

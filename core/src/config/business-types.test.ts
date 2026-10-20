@@ -3,6 +3,7 @@ import { BUSINESS_TYPE_OPTIONS } from "@spero/shared";
 import {
   BUSINESS_TYPES,
   businessTypeSource,
+  customBusinessSource,
   getBusinessType,
 } from "./business-types";
 
@@ -33,5 +34,29 @@ describe("business type mappings", () => {
 
   test("unknown types are rejected by the lookup helper", () => {
     expect(businessTypeSource("spaceship")).toBeNull();
+  });
+
+  test("maps common custom labels to provider categories", () => {
+    const source = customBusinessSource("Pet store");
+
+    expect(source.id).toMatch(/^custom:/);
+    expect(source.geoapifyCategories).toContain("commercial.pet");
+    expect(source.osmTags).toContainEqual({ key: "shop", value: "pet" });
+    expect(source.nameQuery).toBeUndefined();
+  });
+
+  test("falls back to a name search for unknown custom labels", () => {
+    const source = customBusinessSource("Board game cafe");
+
+    expect(source.nameQuery).toBe("Board game cafe");
+    expect(source.osmTags).toEqual([]);
+    expect(source.geoapifyCategories).toContain("commercial");
+  });
+
+  test("keeps custom cache keys distinct and rejects empty labels", () => {
+    expect(customBusinessSource("Pet store").id).not.toBe(
+      customBusinessSource("Bookstore").id,
+    );
+    expect(() => customBusinessSource(" ")).toThrow();
   });
 });

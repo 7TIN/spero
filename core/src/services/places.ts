@@ -1,21 +1,32 @@
-import type {
-  Bbox,
-  BusinessTypeId,
-  PlaceFeatureCollection,
+import {
+  CUSTOM_BUSINESS_TYPE,
+  type Bbox,
+  type BusinessTypeKey,
+  type PlaceFeatureCollection,
 } from "@spero/shared";
+import {
+  customBusinessSource,
+  getBusinessType,
+} from "../config/business-types";
 import { getPlacesForBbox } from "./place-source";
 
 export interface PlacesParams {
   bbox: Bbox;
-  type: BusinessTypeId;
+  type: BusinessTypeKey;
+  label?: string;
 }
 
 /** Competitor places of one business type, as GeoJSON points with card data. */
 export async function getPlaces({
   bbox,
   type,
+  label,
 }: PlacesParams): Promise<PlaceFeatureCollection> {
-  const places = await getPlacesForBbox(bbox, type);
+  const source =
+    type === CUSTOM_BUSINESS_TYPE
+      ? customBusinessSource(label ?? "")
+      : getBusinessType(type);
+  const places = await getPlacesForBbox(bbox, source);
 
   return {
     type: "FeatureCollection",

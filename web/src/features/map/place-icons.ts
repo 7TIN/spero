@@ -15,6 +15,7 @@ import {
   Shirt,
   ShoppingBasket,
   Smartphone,
+  Store,
   Ticket,
   UtensilsCrossed,
   type LucideIcon,
@@ -46,3 +47,8 @@ export const BUSINESS_TYPE_ICONS: Record<BusinessTypeId, LucideIcon> = {
   electronics: Smartphone,
   bank: Landmark,
 };
+
+/** Preset icons, with a neutral shop icon for custom business types. */
+export function businessTypeIcon(type: string): LucideIcon {
+  return BUSINESS_TYPE_ICONS[type as BusinessTypeId] ?? Store;
+}

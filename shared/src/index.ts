@@ -46,8 +46,35 @@ export const BUSINESS_TYPE_OPTIONS = [
 
 export type BusinessTypeId = (typeof BUSINESS_TYPE_OPTIONS)[number]["id"];
 
+/** The extra select value that opens the user-provided business field. */
+export const CUSTOM_BUSINESS_TYPE = "custom" as const;
+export const CUSTOM_BUSINESS_LABEL_MAX_LENGTH = 60;
+
+/** A preset business id, or the custom selector. */
+export type BusinessTypeKey = BusinessTypeId | typeof CUSTOM_BUSINESS_TYPE;
+
+/** A custom provider source is scoped by the user's label. */
+export type BusinessPlaceType = BusinessTypeId | `custom:${string}`;
+
+export interface BusinessTypeOption {
+  id: BusinessTypeKey;
+  label: string;
+  plural: string;
+}
+
+/** The value sent to the places API for a preset or custom comparison. */
+export interface BusinessSelection {
+  type: BusinessTypeKey;
+  /** Required when `type` is custom. */
+  label?: string;
+}
+
 export function isBusinessTypeId(value: string): value is BusinessTypeId {
   return BUSINESS_TYPE_OPTIONS.some((option) => option.id === value);
+}
+
+export function isBusinessTypeKey(value: string): value is BusinessTypeKey {
+  return value === CUSTOM_BUSINESS_TYPE || isBusinessTypeId(value);
 }
 
 export interface Bbox {
@@ -149,7 +176,7 @@ export interface PlaceProperties extends PlaceDetails {
   /** Provider-scoped id, stable enough to highlight a marker's card. */
   id: string;
   name: string | null;
-  type: BusinessTypeId;
+  type: BusinessPlaceType;
 }
 
 export type HotzoneFeature = Feature<Polygon, HotzoneProperties>;

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  CUSTOM_BUSINESS_TYPE,
   POI_CATEGORIES,
   type AgentContext,
   type AgentResponse,
+  type BusinessSelection,
   type BusinessTypeId,
   type GeocodeResult,
   type PoiCategory,
@@ -61,6 +63,9 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     loadPinnedCells(),
   );
   const [businessType, setBusinessType] = useState<BusinessTypeId | null>(null);
+  const [customBusinessLabel, setCustomBusinessLabel] = useState<string | null>(
+    null,
+  );
   const [focusedPlaceId, setFocusedPlaceId] = useState<string | null>(null);
   const [flyToTarget, setFlyToTarget] = useState<FlyToTarget | null>(null);
   const flyToId = useRef(0);
@@ -100,11 +105,18 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   // A selected cell compares competitors within its reach radius. With no cell
   // selected, the same business type becomes a standalone layer for the whole
   // current viewport, so the map is useful before choosing a hot zone.
+  const businessSelection = useMemo<BusinessSelection | null>(() => {
+    if (customBusinessLabel) {
+      return { type: CUSTOM_BUSINESS_TYPE, label: customBusinessLabel };
+    }
+    return businessType ? { type: businessType } : null;
+  }, [businessType, customBusinessLabel]);
+
   const competitorArea = selectedCell;
-  const areaCompetitors = usePlaces(selectedCell, businessType, radius);
+  const areaCompetitors = usePlaces(selectedCell, businessSelection, radius);
   const viewCompetitors = usePlacesInBbox(
     selectedCell ? null : debouncedViewport.bbox,
-    businessType,
+    businessSelection,
   );
   const competitors = selectedCell ? areaCompetitors : viewCompetitors;
 
@@ -258,10 +270,17 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const handleBusinessTypeChange = useCallback(
     (value: BusinessTypeId | null) => {
       setBusinessType(value);
+      setCustomBusinessLabel(null);
       setFocusedPlaceId(null);
     },
     [],
   );
+
+  const handleCustomBusinessChange = useCallback((label: string | null) => {
+    setBusinessType(null);
+    setCustomBusinessLabel(label);
+    setFocusedPlaceId(null);
+  }, []);
 
   const handleCompetitorSelect = useCallback((placeId: string) => {
     setFocusedPlaceId(placeId);
@@ -300,6 +319,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
       }
       if (actions.businessType !== null) {
         setBusinessType(actions.businessType);
+        setCustomBusinessLabel(null);
       }
       if (actions.categories !== null) {
         setEnabledCategories(actions.categories);
@@ -388,7 +408,10 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         viewCenter={viewCenter}
         radius={radius}
         businessType={businessType}
+        customBusinessLabel={customBusinessLabel}
         onBusinessTypeChange={handleBusinessTypeChange}
+        onCustomBusinessChange={handleCustomBusinessChange}
+        enabledCategories={enabledCategories}
         competitors={competitors.data}
         competitorsFetching={competitors.isFetching}
         competitorsError={

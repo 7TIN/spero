@@ -100,6 +100,33 @@ describe("business type validation", () => {
 
     expect(result.success).toBe(false);
   });
+
+  test("accepts a custom business with a label", () => {
+    const result = placesQuerySchema.safeParse({
+      bbox: validBbox,
+      type: "custom",
+      label: "  Pet store  ",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.label).toBe("Pet store");
+  });
+
+  test("rejects a custom business without a useful label", () => {
+    expect(
+      placesQuerySchema.safeParse({
+        bbox: validBbox,
+        type: "custom",
+      }).success,
+    ).toBe(false);
+    expect(
+      placesQuerySchema.safeParse({
+        bbox: validBbox,
+        type: "custom",
+        label: "x",
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("agent request validation", () => {
