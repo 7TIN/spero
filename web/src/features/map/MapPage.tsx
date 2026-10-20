@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   POI_CATEGORIES,
+  type AgentContext,
+  type AgentResponse,
   type BusinessTypeId,
   type GeocodeResult,
   type PoiCategory,
 } from "@spero/shared";
 import { useDebouncedValue } from "../../lib/use-debounced-value";
+import { AgentChat } from "./AgentChat";
 import { ControlPanel } from "./ControlPanel";
 import {
   DEFAULT_CELL_SIZE_M,
@@ -280,6 +283,71 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     });
   }, []);
 
+  const handleAgentApply = useCallback(
+    (response: AgentResponse) => {
+      const { actions } = response;
+
+      if (response.location.result) {
+        handleSearchSelect(response.location.result);
+      }
+      if (actions.clearSelection || response.location.result) {
+        handleClearSelection();
+      }
+      if (actions.mode === "normal") {
+        handleModeChange("normal");
+      } else if (actions.mode === "selection") {
+        setMode("selection");
+      }
+      if (actions.businessType !== null) {
+        setBusinessType(actions.businessType);
+      }
+      if (actions.categories !== null) {
+        setEnabledCategories(actions.categories);
+      }
+      if (actions.cellSizeMeters !== null) {
+        setCellSize(actions.cellSizeMeters);
+      }
+      if (actions.radiusMeters !== null) {
+        setRadius(actions.radiusMeters);
+      }
+      if (actions.basemap !== null) {
+        setBasemapChoice(actions.basemap);
+      }
+      setFocusedPlaceId(null);
+    },
+    [handleClearSelection, handleModeChange, handleSearchSelect],
+  );
+
+  const agentContext = useMemo<AgentContext>(
+    () => ({
+      bbox: viewport.bbox,
+      zoom: viewport.zoom,
+      selectedCell: selectedCell
+        ? {
+            centerLng: selectedCell.centerLng,
+            centerLat: selectedCell.centerLat,
+            score: selectedCell.score,
+          }
+        : null,
+      businessType,
+      cellSize,
+      radius,
+      enabledCategories,
+      basemap,
+      mode,
+    }),
+    [
+      viewport,
+      selectedCell,
+      businessType,
+      cellSize,
+      radius,
+      enabledCategories,
+      basemap,
+      mode,
+    ],
+  );
+
   const error =
     hotzones.error instanceof Error
       ? hotzones.error.message
@@ -313,6 +381,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         onViewportChange={handleViewportChange}
       />
       <MapSearch onSelect={handleSearchSelect} />
+      <AgentChat context={agentContext} onApply={handleAgentApply} />
       <CellDetailPanel
         cell={selectedCell}
         competitorArea={competitorArea}

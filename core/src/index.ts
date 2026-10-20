@@ -5,6 +5,8 @@ import { POI_PROVIDER } from './config/poi'
 import { GeoapifyError } from './services/geoapify'
 import { OverpassError, probeOverpass } from './services/overpass'
 import { cacheStats, geoapifyCreditsToday } from './services/tile-cache'
+import { GEMINI_MODEL, isAgentConfigured } from './config/agent'
+import { agentRoute } from './routes/agent'
 import { geocodeRoute } from './routes/geocode'
 import { hotzonesRoute } from './routes/hotzones'
 import { placesRoute } from './routes/places'
@@ -21,7 +23,8 @@ app.use(
   '*',
   cors({
     origin: allowedOrigins,
-    allowMethods: ['GET', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type'],
   }),
 )
 
@@ -43,6 +46,10 @@ app.get('/health', async (c) => {
       competitors: cache.competitors,
       geoapifyCredits: credits,
       overpass: OVERPASS_URLS,
+      agent: {
+        configured: isAgentConfigured(),
+        model: GEMINI_MODEL,
+      },
     }
 
     // Only hit Overpass when explicitly asked, so health checks stay cheap.
@@ -63,6 +70,7 @@ app.get('/health', async (c) => {
   }
 })
 
+app.route('/api/agent', agentRoute)
 app.route('/api/geocode', geocodeRoute)
 app.route('/api/hotzones', hotzonesRoute)
 app.route('/api/pois', poisRoute)

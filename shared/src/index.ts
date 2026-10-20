@@ -15,6 +15,14 @@ export const POI_CATEGORIES = [
 
 export type PoiCategory = (typeof POI_CATEGORIES)[number];
 
+/** Basemaps the map and the agent can switch between. */
+export const BASEMAP_IDS = ["light", "dark", "osm"] as const;
+export type BasemapId = (typeof BASEMAP_IDS)[number];
+
+/** Selection keeps a clicked cell outlined; normal clears it when the map moves. */
+export const SELECTION_MODES = ["normal", "selection"] as const;
+export type SelectionMode = (typeof SELECTION_MODES)[number];
+
 /**
  * Business types a user can compare against the selected area. The labels live
  * here so the web app and the provider mapping in core stay in sync.
@@ -66,6 +74,51 @@ export interface GeocodeResult {
 
 export interface GeocodeResponse {
   results: GeocodeResult[];
+}
+
+/** Snapshot of the map controls sent with an agent request. */
+export interface AgentContext {
+  bbox: Bbox | null;
+  zoom: number;
+  selectedCell: {
+    centerLng: number;
+    centerLat: number;
+    score: number;
+  } | null;
+  businessType: BusinessTypeId | null;
+  cellSize: number;
+  radius: number;
+  enabledCategories: PoiCategory[];
+  basemap: BasemapId;
+  mode: SelectionMode;
+}
+
+export interface AgentLocation {
+  /** The place name the model asked to geocode, if any. */
+  query: string | null;
+  useCurrentView: boolean;
+  /** Resolved place, or null when the query was not a named place or not found. */
+  result: GeocodeResult | null;
+}
+
+/** Validated controls the web app should apply after an agent response. */
+export interface AgentActions {
+  businessType: BusinessTypeId | null;
+  categories: PoiCategory[] | null;
+  cellSizeMeters: number | null;
+  radiusMeters: number | null;
+  basemap: BasemapId | null;
+  mode: SelectionMode | null;
+  clearSelection: boolean;
+}
+
+export type AgentSource = "gemini" | "quick";
+
+export interface AgentResponse {
+  message: string;
+  source: AgentSource;
+  location: AgentLocation;
+  actions: AgentActions;
 }
 
 /** Optional place metadata kept alongside every cached POI/competitor. */

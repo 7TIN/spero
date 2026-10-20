@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+  BASEMAP_IDS,
   isBusinessTypeId,
   POI_CATEGORIES,
+  SELECTION_MODES,
   type Bbox,
   type BusinessTypeId,
   type PoiCategory,
@@ -15,6 +17,7 @@ import {
   MIN_CELL_SIZE_M,
   MIN_RADIUS_M,
 } from "../config/scoring";
+import { AGENT_MAX_QUERY_LENGTH } from "../config/agent";
 import { bboxSpanMeters } from "../lib/geo";
 
 const CATEGORY_SET = new Set<string>(POI_CATEGORIES);
@@ -122,7 +125,54 @@ export const geocodeQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(8).default(5),
 });
 
+const agentBboxSchema = z
+  .object({
+    minLng: z.number().min(-180).max(180),
+    minLat: z.number().min(-90).max(90),
+    maxLng: z.number().min(-180).max(180),
+    maxLat: z.number().min(-90).max(90),
+  })
+  .refine(
+    (bbox) => bbox.minLng < bbox.maxLng && bbox.minLat < bbox.maxLat,
+    { message: "bbox must satisfy minLng < maxLng and minLat < maxLat" },
+  );
+
+export const agentContextSchema = z.object({
+  bbox: agentBboxSchema.nullable(),
+  zoom: z.number().min(0).max(24),
+  selectedCell: z
+    .object({
+      centerLng: z.number().min(-180).max(180),
+      centerLat: z.number().min(-90).max(90),
+      score: z.number().min(0).max(100),
+    })
+    .nullable(),
+  businessType: z
+    .custom<BusinessTypeId>(
+      (value) => typeof value === "string" && isBusinessTypeId(value),
+      { message: "unknown business type" },
+    )
+    .nullable(),
+  cellSize: z.number().int().min(MIN_CELL_SIZE_M).max(MAX_CELL_SIZE_M),
+  radius: z.number().int().min(MIN_RADIUS_M).max(MAX_RADIUS_M),
+  enabledCategories: z
+    .array(z.enum(POI_CATEGORIES))
+    .max(POI_CATEGORIES.length),
+  basemap: z.enum(BASEMAP_IDS),
+  mode: z.enum(SELECTION_MODES),
+});
+
+export const agentRequestSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(2, "agent needs at least two characters")
+    .max(AGENT_MAX_QUERY_LENGTH, "agent query is too long"),
+  context: agentContextSchema,
+});
+
 export type HotzonesQuery = z.infer<typeof hotzonesQuerySchema>;
 export type PoisQuery = z.infer<typeof poisQuerySchema>;
 export type PlacesQuery = z.infer<typeof placesQuerySchema>;
 export type GeocodeQuery = z.infer<typeof geocodeQuerySchema>;
+export type AgentRequest = z.infer<typeof agentRequestSchema>;

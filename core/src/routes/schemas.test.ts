@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_CELL_SIZE_M, DEFAULT_RADIUS_M } from "../config/scoring";
 import {
+  agentRequestSchema,
   geocodeQuerySchema,
   hotzonesQuerySchema,
   placesQuerySchema,
@@ -98,5 +99,52 @@ describe("business type validation", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("agent request validation", () => {
+  const context = {
+    bbox: {
+      minLng: 73.85,
+      minLat: 18.51,
+      maxLng: 73.86,
+      maxLat: 18.52,
+    },
+    zoom: 15,
+    selectedCell: null,
+    businessType: null,
+    cellSize: 250,
+    radius: 500,
+    enabledCategories: ["school", "hospital"],
+    basemap: "light",
+    mode: "selection",
+  };
+
+  test("accepts a query with a valid control snapshot", () => {
+    const result = agentRequestSchema.safeParse({
+      query: "  start a gym in this area  ",
+      context,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.query).toBe("start a gym in this area");
+      expect(result.data.context.basemap).toBe("light");
+    }
+  });
+
+  test("rejects invalid controls and short queries", () => {
+    expect(
+      agentRequestSchema.safeParse({
+        query: "gym",
+        context: { ...context, basemap: "satellite" },
+      }).success,
+    ).toBe(false);
+    expect(
+      agentRequestSchema.safeParse({
+        query: "g",
+        context,
+      }).success,
+    ).toBe(false);
   });
 });

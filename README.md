@@ -50,7 +50,8 @@ cp core/.env.example core/.env
 - Switching providers or changing the cached place shape clears the cache
   automatically, so results from different providers are never mixed.
 - Place cards show address, phone, website, and opening hours only when the
-  provider supplies them. No photos or Google API calls are used. The
+  provider supplies them. No photos or Google Places/POI API calls are used.
+  The optional Spero Agent calls Gemini separately when configured. The
   "Open in Google Maps" button is a free search URL that opens a new tab.
 - Place data is attributed to Geoapify and OpenStreetMap on the map.
 - Address and place search uses the public
@@ -58,6 +59,34 @@ cp core/.env.example core/.env
   when submitted, are cached for ten minutes, and are serialised to respect
   Nominatim's one-request-per-second policy. Set `NOMINATIM_URL` to a
   self-hosted instance for production traffic.
+
+## Spero Agent
+
+The bottom chat box turns a sentence such as "I want to start a gym in this
+area" into map controls. The API route validates the request, asks Gemini for a
+strict JSON plan, validates the JSON again, geocodes any named place, and only
+then returns controls the web app can apply. The key never reaches the browser.
+
+```bash
+# core/.env
+GEMINI_API_KEY=...
+# Optional; defaults to the low-latency model below.
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+Without `GEMINI_API_KEY`, `/api/agent` uses a deterministic quick planner that
+handles common locations, business types, categories, basemaps, and range
+controls. The chat response labels which planner produced it. The agent can:
+
+- move the map to a city, neighbourhood, or address;
+- switch the competitor business type and show competitors in the new view;
+- enable place categories;
+- change cell size, reach radius, basemap, and selection mode;
+- clear a selected cell so the standalone viewport competitor layer is used.
+
+It does not multi-select cells: the grid already draws every hot-zone cell in
+the current view. It also cannot invent scores, coordinates, or competitor
+counts.
 
 ### Overpass fallback
 
@@ -92,11 +121,17 @@ before deploying.
 | GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital` | GeoJSON POIs with `name`, `category`, and place details |
 | GET    | `/api/places?bbox=minLng,minLat,maxLng,maxLat&type=cafe` | GeoJSON competitor places for one business type |
 | GET    | `/api/geocode?q=Koregaon%20Park&limit=5`                  | Address/place search results with coordinates and optional bounds |
+| POST   | `/api/agent`                                              | Validated map-control plan for a natural-language request |
 
 `bbox` must span no more than about 15 km in either direction; larger requests
 return `400`. An unknown `type` on `/api/places` also returns `400`. Supported
 types are `cafe`, `restaurant`, `pharmacy`, `gym`, `salon`, `bakery`, `grocery`,
 `clothing`, `electronics`, and `bank`.
+
+`POST /api/agent` accepts `{ "query": "...", "context": { ... } }` where
+`context` is the current view, selection, filters, and range controls. It
+returns `{ message, source, location, actions }`; unsupported model output is
+rejected instead of being applied.
 
 `/health` reports the cache size, today's estimated Geoapify credits, and the
 configured Overpass endpoints. Add `?probe=1` to also check whether Overpass is

@@ -1,4 +1,6 @@
 import type {
+  AgentContext,
+  AgentResponse,
   Bbox,
   BusinessTypeId,
   GeocodeResponse,
@@ -13,6 +15,17 @@ function bboxParam(bbox: Bbox): string {
   return [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat].join(",");
 }
 
+async function readError(response: Response): Promise<Error> {
+  let message = `Request failed with status ${response.status}`;
+  try {
+    const body = (await response.json()) as { error?: string };
+    if (body.error) message = body.error;
+  } catch {
+    // Keep the generic message when the response is not JSON.
+  }
+  return new Error(message);
+}
+
 async function request<T>(
   path: string,
   params: URLSearchParams,
@@ -22,16 +35,7 @@ async function request<T>(
     signal,
   });
 
-  if (!response.ok) {
-    let message = `Request failed with status ${response.status}`;
-    try {
-      const body = (await response.json()) as { error?: string };
-      if (body.error) message = body.error;
-    } catch {
-      // Keep the generic message when the response is not JSON.
-    }
-    throw new Error(message);
-  }
+  if (!response.ok) throw await readError(response);
 
   return (await response.json()) as T;
 }
@@ -108,4 +112,27 @@ export function fetchGeocode({
   const params = new URLSearchParams({ q: query, limit: "5" });
 
   return request<GeocodeResponse>("/api/geocode", params, signal);
+}
+
+export interface FetchAgentParams {
+  query: string;
+  context: AgentContext;
+  signal?: AbortSignal;
+}
+
+export async function fetchAgent({
+  query,
+  context,
+  signal,
+}: FetchAgentParams): Promise<AgentResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/agent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, context }),
+    signal,
+  });
+
+  if (!response.ok) throw await readError(response);
+
+  return (await response.json()) as AgentResponse;
 }
