@@ -36,6 +36,13 @@ export const MAX_PINNED_CELLS = 6;
 export const PIN_COLOR = "#f59e0b";
 export const PIN_STORAGE_KEY = "spero:pinned-cells:v1";
 
+/**
+ * A viewport can contain hundreds of identical business markers. Keep the
+ * layer responsive by showing the nearest subset and saying so in the panel.
+ */
+export const MAX_VIEW_COMPETITOR_MARKERS = 250;
+export const MAX_VIEW_COMPETITOR_CARDS = 40;
+
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 

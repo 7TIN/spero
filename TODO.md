@@ -5,10 +5,7 @@ Ideas deferred beyond Phase 2:
 - Add Drizzle ORM over `bun:sqlite` (see `docs/phase-2-drizzle.md`).
 - Self-hosted Overpass or Overture Maps if the public Overpass API becomes a
   bottleneck.
-- Authentication and per-user saved areas.
-- Multiple pinned cells (the current lock pins one area at a time).
-- Address search and fly-to.
-- A general competitor layer independent of a selected cell.
+- Authentication and per-user saved areas (pins currently live in localStorage).
 - Optional place details enrichment (Geoapify Place Details) for phone, website,
   and opening hours that are missing from the Places response.
 - Google Places / other commercial POI providers.

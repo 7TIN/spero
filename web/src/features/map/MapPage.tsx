@@ -12,6 +12,7 @@ import {
   DEFAULT_RADIUS_M,
   DEFAULT_ZOOM,
   MAX_PINNED_CELLS,
+  MAX_VIEW_COMPETITOR_MARKERS,
   MOVE_DEBOUNCE_MS,
   POI_MIN_ZOOM,
   type BasemapId,
@@ -29,7 +30,7 @@ import type {
   SelectionMode,
 } from "./types";
 import { useHotzones } from "./useHotzones";
-import { usePlaces } from "./usePlaces";
+import { usePlaces, usePlacesInBbox } from "./usePlaces";
 import { usePois } from "./usePois";
 
 interface MapPageProps {
@@ -62,6 +63,20 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const flyToId = useRef(0);
 
   const debouncedViewport = useDebouncedValue(viewport, MOVE_DEBOUNCE_MS);
+  const viewCenter = useMemo(
+    () =>
+      debouncedViewport.bbox
+        ? {
+            lng:
+              (debouncedViewport.bbox.minLng + debouncedViewport.bbox.maxLng) /
+              2,
+            lat:
+              (debouncedViewport.bbox.minLat + debouncedViewport.bbox.maxLat) /
+              2,
+          }
+        : null,
+    [debouncedViewport.bbox],
+  );
 
   // Pins are saved areas, not a scoring lock: the grid keeps following the
   // viewport so panning to another neighbourhood still scores that area.
@@ -79,34 +94,66 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     poisEnabled,
   );
 
-  // The competitor list follows the selected cell. Pins are saved shortcuts to
-  // cells, so choosing one simply selects it again. Keeping the query here (not
-  // in the panel) keeps the markers in sync with the panel's empty state.
+  // A selected cell compares competitors within its reach radius. With no cell
+  // selected, the same business type becomes a standalone layer for the whole
+  // current viewport, so the map is useful before choosing a hot zone.
   const competitorArea = selectedCell;
-  const competitors = usePlaces(competitorArea, businessType, radius);
+  const areaCompetitors = usePlaces(selectedCell, businessType, radius);
+  const viewCompetitors = usePlacesInBbox(
+    selectedCell ? null : debouncedViewport.bbox,
+    businessType,
+  );
+  const competitors = selectedCell ? areaCompetitors : viewCompetitors;
 
   // The API returns the square bbox that contains the reach circle. Keep the
-  // marker layer in sync with the distance-filtered list in the panel.
+  // marker layer in sync with the distance-filtered list in the panel. In view
+  // mode, hide the farthest markers when a dense area would render too many.
   const competitorMarkers = useMemo(() => {
-    if (!competitors.data || !competitorArea) return undefined;
+    if (!competitors.data) return undefined;
 
-    return {
-      ...competitors.data,
-      features: competitors.data.features.filter((feature) => {
-        const [lng, lat] = feature.geometry.coordinates;
-        if (lng === undefined || lat === undefined) return false;
+    if (selectedCell) {
+      return {
+        ...competitors.data,
+        features: competitors.data.features.filter((feature) => {
+          const [lng, lat] = feature.geometry.coordinates;
+          if (lng === undefined || lat === undefined) return false;
+
+          return (
+            haversineMeters(
+              selectedCell.centerLng,
+              selectedCell.centerLat,
+              lng,
+              lat,
+            ) < radius
+          );
+        }),
+      };
+    }
+
+    if (!viewCenter) return undefined;
+
+    const features = [...competitors.data.features]
+      .sort((a, b) => {
+        const [aLng, aLat] = a.geometry.coordinates;
+        const [bLng, bLat] = b.geometry.coordinates;
+        if (
+          aLng === undefined ||
+          aLat === undefined ||
+          bLng === undefined ||
+          bLat === undefined
+        ) {
+          return 0;
+        }
 
         return (
-          haversineMeters(
-            competitorArea.centerLng,
-            competitorArea.centerLat,
-            lng,
-            lat,
-          ) < radius
+          haversineMeters(viewCenter.lng, viewCenter.lat, aLng, aLat) -
+          haversineMeters(viewCenter.lng, viewCenter.lat, bLng, bLat)
         );
-      }),
-    };
-  }, [competitors.data, competitorArea, radius]);
+      })
+      .slice(0, MAX_VIEW_COMPETITOR_MARKERS);
+
+    return { ...competitors.data, features };
+  }, [competitors.data, selectedCell, radius, viewCenter]);
 
   const toggleCategory = useCallback((category: PoiCategory) => {
     setEnabledCategories((current) =>
@@ -238,7 +285,9 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
       ? hotzones.error.message
       : pois.error instanceof Error
         ? pois.error.message
-        : null;
+        : competitors.error instanceof Error
+          ? competitors.error.message
+          : null;
 
   return (
     <div className="relative h-svh w-full overflow-hidden bg-background">
@@ -267,6 +316,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
       <CellDetailPanel
         cell={selectedCell}
         competitorArea={competitorArea}
+        viewCenter={viewCenter}
         radius={radius}
         businessType={businessType}
         onBusinessTypeChange={handleBusinessTypeChange}

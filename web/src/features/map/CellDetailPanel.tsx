@@ -29,6 +29,7 @@ import {
   CATEGORY_LABELS,
   COMPETITOR_COLOR,
   MAX_PINNED_CELLS,
+  MAX_VIEW_COMPETITOR_CARDS,
 } from "./constants";
 import { haversineMeters } from "./geo";
 import { cn } from "../../lib/utils";
@@ -44,6 +45,8 @@ import { useCellPois } from "./useCellPois";
 interface CellDetailPanelProps {
   cell: SelectedCell | null;
   competitorArea: SelectedCell | null;
+  /** Centre of the current viewport, used by the standalone layer. */
+  viewCenter: { lng: number; lat: number } | null;
   radius: number;
   businessType: BusinessTypeId | null;
   onBusinessTypeChange: (type: BusinessTypeId | null) => void;
@@ -91,9 +94,83 @@ function toCardData(
   };
 }
 
+interface CompetitorSectionProps {
+  option: (typeof BUSINESS_TYPE_OPTIONS)[number];
+  places: CompetitorPlace[];
+  visiblePlaces: CompetitorPlace[];
+  scope: "area" | "view";
+  radius: number;
+  fetching: boolean;
+  error: Error | null;
+  focusedPlaceId: string | null;
+}
+
+function CompetitorSection({
+  option,
+  places,
+  visiblePlaces,
+  scope,
+  radius,
+  fetching,
+  error,
+  focusedPlaceId,
+}: CompetitorSectionProps) {
+  const noun = places.length === 1 ? option.label.toLowerCase() : option.plural;
+  const nearest = places[0]?.distanceMeters ?? null;
+
+  return (
+    <section className="space-y-2 border-b pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-1">
+        <p className="text-xs font-semibold">
+          {places.length} {noun}{" "}
+          {scope === "area" ? `within ${radius} m` : "in view"}
+        </p>
+        {nearest !== null && (
+          <Badge className="border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300">
+            Nearest {formatDistance(nearest)}
+          </Badge>
+        )}
+      </div>
+
+      {error ? (
+        <p className="text-xs text-destructive">{error.message}</p>
+      ) : fetching ? (
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" />
+          Finding {option.plural}…
+        </p>
+      ) : places.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No competitors found {scope === "area" ? `within ${radius} m` : "in this view"}.
+        </p>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {visiblePlaces.map((place) => (
+              <PlaceCard
+                key={place.id}
+                place={place}
+                icon={BUSINESS_TYPE_ICONS[place.type]}
+                accentColor={COMPETITOR_COLOR}
+                highlighted={place.id === focusedPlaceId}
+              />
+            ))}
+          </div>
+          {visiblePlaces.length < places.length && (
+            <p className="text-[10px] text-muted-foreground">
+              Showing the nearest {visiblePlaces.length} of {places.length}.
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export function CellDetailPanel({
   cell,
   competitorArea,
+  viewCenter,
   radius,
   businessType,
   onBusinessTypeChange,
@@ -170,10 +247,23 @@ export function CellDetailPanel({
       });
   }, [cell, data, radius]);
 
-  const competitorPlaces = useMemo<CompetitorPlace[]>(() => {
-    if (!competitorArea || !competitors) return [];
+  const competitorCenter = useMemo(
+    () =>
+      competitorArea
+        ? { lng: competitorArea.centerLng, lat: competitorArea.centerLat }
+        : viewCenter,
+    [competitorArea, viewCenter],
+  );
+  const competitorScope = competitorArea
+    ? "area"
+    : competitorCenter
+      ? "view"
+      : null;
 
-    return competitors.features
+  const competitorPlaces = useMemo<CompetitorPlace[]>(() => {
+    if (!competitorCenter || !competitors) return [];
+
+    const places = competitors.features
       .map((feature): CompetitorPlace | null => {
         const [lng, lat] = feature.geometry.coordinates;
         if (lng === undefined || lat === undefined) return null;
@@ -195,18 +285,25 @@ export function CellDetailPanel({
             },
             lng,
             lat,
-            competitorArea.centerLng,
-            competitorArea.centerLat,
+            competitorCenter.lng,
+            competitorCenter.lat,
           ),
           type: properties.type,
         };
       })
-      .filter(
-        (place): place is CompetitorPlace =>
-          place !== null && place.distanceMeters < radius,
-      )
+      .filter((place): place is CompetitorPlace => place !== null)
       .sort((a, b) => a.distanceMeters - b.distanceMeters);
-  }, [competitorArea, competitors, radius]);
+
+    // The area list keeps the reach-radius promise. The standalone view layer
+    // shows everything currently visible, nearest first.
+    return competitorArea
+      ? places.filter((place) => place.distanceMeters < radius)
+      : places;
+  }, [competitorArea, competitorCenter, competitors, radius]);
+
+  const visibleCompetitors = competitorArea
+    ? competitorPlaces
+    : competitorPlaces.slice(0, MAX_VIEW_COMPETITOR_CARDS);
 
   const totalPlaces = groups.reduce(
     (total, group) => total + group.places.length,
@@ -216,11 +313,6 @@ export function CellDetailPanel({
   const businessTypeOption = businessType
     ? BUSINESS_TYPE_OPTIONS.find((option) => option.id === businessType)
     : null;
-  const competitorNoun =
-    competitorPlaces.length === 1
-      ? businessTypeOption?.label.toLowerCase()
-      : businessTypeOption?.plural;
-  const nearestCompetitor = competitorPlaces[0]?.distanceMeters ?? null;
 
   useEffect(() => {
     if (!focusedPlaceId) return;
@@ -254,13 +346,17 @@ export function CellDetailPanel({
     <Card className="absolute top-5 bottom-5 left-5 z-10 flex w-[250px] flex-col overflow-hidden">
       <CardHeader className="flex-row items-start justify-between gap-3 border-b pb-3">
         <div className="space-y-1">
-          <CardTitle>Hot zone</CardTitle>
+          <CardTitle>
+            {businessType && !cell ? "Competitors" : "Hot zone"}
+          </CardTitle>
           <p className="text-xs text-muted-foreground">
             {cell
               ? isFetching
                 ? "Loading places…"
                 : `${totalPlaces} places within ${radius} m`
-              : "No cell selected"}
+              : businessType
+                ? "Standalone layer · current view"
+                : "No cell selected"}
           </p>
         </div>
         {cell && (
@@ -394,60 +490,54 @@ export function CellDetailPanel({
       )}
 
       {!cell ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <div className="flex size-11 items-center justify-center rounded-full border bg-muted text-muted-foreground">
-            <SquareDashed className="size-5" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium">Select a cell</p>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Click any hot-zone cell on the map, or reopen one of your pinned
-              cells above.
+        businessType &&
+        businessTypeOption &&
+        competitorScope === "view" &&
+        competitorCenter ? (
+          <CardContent className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto pt-4 pr-1.5 pl-4 [scrollbar-gutter:stable]">
+            <CompetitorSection
+              option={businessTypeOption}
+              places={competitorPlaces}
+              visiblePlaces={visibleCompetitors}
+              scope="view"
+              radius={radius}
+              fetching={competitorsFetching}
+              error={competitorsError}
+              focusedPlaceId={focusedPlaceId}
+            />
+            <p className="border-t pt-3 text-[11px] leading-relaxed text-muted-foreground">
+              Showing the standalone competitor layer for the current view.
+              Select a hot-zone cell for its crowd score and full place
+              breakdown.
             </p>
+          </CardContent>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="flex size-11 items-center justify-center rounded-full border bg-muted text-muted-foreground">
+              <SquareDashed className="size-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Select a cell</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Click any hot-zone cell on the map, or reopen one of your pinned
+                cells above. Choose a business type to see competitors in view.
+              </p>
+            </div>
           </div>
-        </div>
+        )
       ) : (
         <CardContent className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto pt-4 pr-1.5 pl-4 [scrollbar-gutter:stable]">
-          {businessType && businessTypeOption && (
-            <section className="space-y-2 border-b pb-4">
-              <div className="flex flex-wrap items-center justify-between gap-1">
-                <p className="text-xs font-semibold">
-                  {competitorPlaces.length} {competitorNoun} within {radius} m
-                </p>
-                {nearestCompetitor !== null && (
-                  <Badge className="border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300">
-                    Nearest {formatDistance(nearestCompetitor)}
-                  </Badge>
-                )}
-              </div>
-
-              {competitorsError ? (
-                <p className="text-xs text-destructive">
-                  {competitorsError.message}
-                </p>
-              ) : competitorsFetching ? (
-                <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 animate-spin" />
-                  Finding {businessTypeOption.plural}…
-                </p>
-              ) : competitorPlaces.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No competitors found within {radius} m.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {competitorPlaces.map((place) => (
-                    <PlaceCard
-                      key={place.id}
-                      place={place}
-                      icon={BUSINESS_TYPE_ICONS[place.type]}
-                      accentColor={COMPETITOR_COLOR}
-                      highlighted={place.id === focusedPlaceId}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
+          {businessType && businessTypeOption && competitorScope && (
+            <CompetitorSection
+              option={businessTypeOption}
+              places={competitorPlaces}
+              visiblePlaces={visibleCompetitors}
+              scope={competitorScope}
+              radius={radius}
+              fetching={competitorsFetching}
+              error={competitorsError}
+              focusedPlaceId={focusedPlaceId}
+            />
           )}
 
           <section className="space-y-2">
