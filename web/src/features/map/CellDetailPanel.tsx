@@ -289,7 +289,7 @@ export function CellDetailPanel({
         </div>
       </div>
 
-      <CardContent className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto pt-4">
+      <CardContent className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto pt-4 pr-1.5 pl-4 [scrollbar-gutter:stable]">
         {businessType && businessTypeOption && (
           <section className="space-y-2 border-b pb-4">
             <div className="flex flex-wrap items-center justify-between gap-1">
