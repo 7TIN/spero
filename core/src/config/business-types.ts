@@ -113,6 +113,17 @@ const CUSTOM_BUSINESS_MAPPINGS: CustomBusinessMapping[] = [
     osmTags: [{ key: "shop", value: "books" }],
   },
   {
+    aliases: [
+      "stationery",
+      "stationery store",
+      "stationery shop",
+      "office supplies",
+      "school supplies",
+    ],
+    geoapifyCategories: ["commercial.stationery"],
+    osmTags: [{ key: "shop", value: "stationery" }],
+  },
+  {
     aliases: ["furniture store", "furniture", "home decor"],
     geoapifyCategories: ["commercial.furniture_and_interior"],
     osmTags: [{ key: "shop", value: "furniture" }],

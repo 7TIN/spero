@@ -72,6 +72,23 @@ describe("planWithRules", () => {
     expect(plan.reply).toContain("colleges");
   });
 
+  test("moves to a named area even when the query says 'the area'", () => {
+    const plan = planWithRules(
+      "Show me the area in Navi Mumbai where are most college only i wanted to settle my stationery shop there",
+      context,
+    );
+
+    expect(plan.actions.businessType).toBe("custom");
+    expect(plan.actions.businessLabel).toBe("stationery shop");
+    expect(plan.locationQuery).toBe("Navi Mumbai");
+    expect(plan.useCurrentView).toBe(false);
+    expect(plan.actions.clearSelection).toBe(true);
+    expect(plan.actions.categories).toEqual(["college"]);
+    expect(plan.reply).toContain("stationery shop");
+    expect(plan.reply).toContain("Navi Mumbai");
+    expect(plan.reply).toContain("colleges");
+  });
+
   test("does not treat 'this area' as a place name", () => {
     const plan = planWithRules("show gyms in this area", context);
 

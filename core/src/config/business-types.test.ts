@@ -45,6 +45,17 @@ describe("business type mappings", () => {
     expect(source.nameQuery).toBeUndefined();
   });
 
+  test("maps stationery shops to the stationery category", () => {
+    const source = customBusinessSource("stationery shop");
+
+    expect(source.geoapifyCategories).toContain("commercial.stationery");
+    expect(source.osmTags).toContainEqual({
+      key: "shop",
+      value: "stationery",
+    });
+    expect(source.nameQuery).toBeUndefined();
+  });
+
   test("falls back to a name search for unknown custom labels", () => {
     const source = customBusinessSource("Board game cafe");
 

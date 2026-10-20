@@ -84,7 +84,9 @@ handles common locations, preset and custom business types, categories,
 basemaps, and range controls. For example, "I want to open a pet store in
 Hinjewadi and find places like markets, colleges, and hotels" selects the custom
 Pet Store competitor, moves to Hinjewadi, and enables those three categories.
-The agent can:
+"Show me the area in Navi Mumbai with the most colleges; I want to settle my
+stationery shop there" moves to Navi Mumbai, enables colleges, and creates a
+custom Stationery shop comparison. The agent can:
 
 - move the map to a city, neighbourhood, or address;
 - switch the competitor business type, including a custom name such as Pet Store,
