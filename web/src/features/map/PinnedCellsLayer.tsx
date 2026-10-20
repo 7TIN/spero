@@ -52,6 +52,16 @@ export function PinnedCellsLayer({
     <>
       <Source id="pinned-cells" type="geojson" data={pinsCollection(pins)}>
         <Layer
+          id="pinned-cells-casing"
+          type="line"
+          layout={{ "line-cap": "round", "line-join": "round" }}
+          paint={{
+            "line-color": "#111827",
+            "line-width": 5,
+            "line-opacity": 0.35,
+          }}
+        />
+        <Layer
           id="pinned-cells-outline"
           type="line"
           layout={{ "line-cap": "round", "line-join": "round" }}
@@ -59,7 +69,7 @@ export function PinnedCellsLayer({
             "line-color": PIN_COLOR,
             "line-width": 2,
             "line-dasharray": [1.2, 1.6],
-            "line-opacity": 0.8,
+            "line-opacity": 0.9,
           }}
         />
       </Source>
