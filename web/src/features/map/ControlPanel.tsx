@@ -78,10 +78,12 @@ export function ControlPanel({
             <CardTitle className="flex items-center gap-2">
               Spero
               <Badge className="border-transparent bg-secondary text-secondary-foreground">
-                Phase 1
+                Phase 2
               </Badge>
             </CardTitle>
-            <CardDescription>Crowd hot zones from OpenStreetMap</CardDescription>
+            <CardDescription>
+              Crowd hot zones and nearby competitors from OpenStreetMap
+            </CardDescription>
           </div>
           <Button
             variant="ghost"
@@ -232,6 +234,28 @@ export function ControlPanel({
             <span>100</span>
           </div>
         </div>
+
+        <p className="border-t pt-3 text-[10px] leading-relaxed text-muted-foreground">
+          Places powered by{" "}
+          <a
+            className="underline underline-offset-2 hover:text-foreground"
+            href="https://www.geoapify.com/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Geoapify
+          </a>{" "}
+          · ©{" "}
+          <a
+            className="underline underline-offset-2 hover:text-foreground"
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noreferrer"
+          >
+            OpenStreetMap
+          </a>{" "}
+          contributors
+        </p>
       </CardContent>
     </Card>
   );

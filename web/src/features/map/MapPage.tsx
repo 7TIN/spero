@@ -1,5 +1,9 @@
-import { useCallback, useState } from "react";
-import { POI_CATEGORIES, type PoiCategory } from "@spero/shared";
+import { useCallback, useMemo, useState } from "react";
+import {
+  POI_CATEGORIES,
+  type BusinessTypeId,
+  type PoiCategory,
+} from "@spero/shared";
 import { useDebouncedValue } from "../../lib/use-debounced-value";
 import { ControlPanel } from "./ControlPanel";
 import {
@@ -11,9 +15,11 @@ import {
   type BasemapId,
 } from "./constants";
 import { CellDetailPanel } from "./CellDetailPanel";
+import { haversineMeters } from "./geo";
 import { MapView } from "./MapView";
 import type { MapViewport, SelectedCell, SelectionMode } from "./types";
 import { useHotzones } from "./useHotzones";
+import { usePlaces } from "./usePlaces";
 import { usePois } from "./usePois";
 
 interface MapPageProps {
@@ -39,6 +45,8 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [lockedCell, setLockedCell] = useState<SelectedCell | null>(null);
+  const [businessType, setBusinessType] = useState<BusinessTypeId | null>(null);
+  const [focusedPlaceId, setFocusedPlaceId] = useState<string | null>(null);
   const locked = lockedCell !== null;
 
   const debouncedViewport = useDebouncedValue(viewport, MOVE_DEBOUNCE_MS);
@@ -60,6 +68,35 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     poisEnabled,
   );
 
+  // The competitor list belongs to the locked area when one is set, otherwise
+  // to the selected cell. Keeping the query here (not in the panel) means the
+  // markers survive a pan that closes the panel.
+  const competitorArea = lockedCell ?? selectedCell;
+  const competitors = usePlaces(competitorArea, businessType, radius);
+
+  // The API returns the square bbox that contains the reach circle. Keep the
+  // marker layer in sync with the distance-filtered list in the panel.
+  const competitorMarkers = useMemo(() => {
+    if (!competitors.data || !competitorArea) return undefined;
+
+    return {
+      ...competitors.data,
+      features: competitors.data.features.filter((feature) => {
+        const [lng, lat] = feature.geometry.coordinates;
+        if (lng === undefined || lat === undefined) return false;
+
+        return (
+          haversineMeters(
+            competitorArea.centerLng,
+            competitorArea.centerLat,
+            lng,
+            lat,
+          ) < radius
+        );
+      }),
+    };
+  }, [competitors.data, competitorArea, radius]);
+
   const toggleCategory = useCallback((category: PoiCategory) => {
     setEnabledCategories((current) =>
       current.includes(category)
@@ -78,6 +115,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
 
   const handleSelect = useCallback((cell: SelectedCell) => {
     setSelectedCell(cell);
+    setFocusedPlaceId(null);
     setPanelOpen(true);
   }, []);
 
@@ -85,6 +123,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   // outline stays so the user keeps their bearings; normal mode behaves as before.
   const handleMoveStart = useCallback(() => {
     setPanelOpen(false);
+    setFocusedPlaceId(null);
     if (mode !== "selection") {
       setSelectedCell(null);
       setLockedCell(null);
@@ -93,6 +132,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
 
   const handlePanelClose = useCallback(() => {
     setPanelOpen(false);
+    setFocusedPlaceId(null);
     if (mode !== "selection") {
       setSelectedCell(null);
       setLockedCell(null);
@@ -103,6 +143,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     setSelectedCell(null);
     setPanelOpen(false);
     setLockedCell(null);
+    setFocusedPlaceId(null);
   }, []);
 
   const handleToggleLock = useCallback(() => {
@@ -115,6 +156,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
       setSelectedCell(null);
       setPanelOpen(false);
       setLockedCell(null);
+      setFocusedPlaceId(null);
     }
   }, []);
 
@@ -136,6 +178,19 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     [mode],
   );
 
+  const handleBusinessTypeChange = useCallback(
+    (value: BusinessTypeId | null) => {
+      setBusinessType(value);
+      setFocusedPlaceId(null);
+    },
+    [],
+  );
+
+  const handleCompetitorSelect = useCallback((placeId: string) => {
+    setFocusedPlaceId(placeId);
+    setPanelOpen(true);
+  }, []);
+
   const error =
     hotzones.error instanceof Error
       ? hotzones.error.message
@@ -149,18 +204,30 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         basemap={basemap}
         hotzones={hotzones.data}
         pois={pois.data}
+        competitors={competitorMarkers}
+        focusedPlaceId={focusedPlaceId}
         outlineCell={lockedCell ?? selectedCell}
         selectionMode={mode}
         locked={locked}
         onSelect={handleSelect}
         onClearSelection={handleClearSelection}
         onToggleLock={handleToggleLock}
+        onCompetitorSelect={handleCompetitorSelect}
         onMoveStart={handleMoveStart}
         onViewportChange={handleViewportChange}
       />
       <CellDetailPanel
         cell={panelOpen ? selectedCell : null}
+        competitorArea={competitorArea}
         radius={radius}
+        businessType={businessType}
+        onBusinessTypeChange={handleBusinessTypeChange}
+        competitors={competitors.data}
+        competitorsFetching={competitors.isFetching}
+        competitorsError={
+          competitors.error instanceof Error ? competitors.error : null
+        }
+        focusedPlaceId={focusedPlaceId}
         onClose={handlePanelClose}
       />
       <ControlPanel

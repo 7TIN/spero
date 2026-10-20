@@ -84,6 +84,12 @@ export const HOTZONE_COLOR_STOPS = [
 
 export const HOTZONE_FILL_OPACITY = 0.55;
 
+/** Competitor markers use a colour that never appears in the crowd dots. */
+export const COMPETITOR_COLOR = "#d946ef";
+
+export const PLACES_ATTRIBUTION =
+  'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
+
 export const CATEGORY_LABELS: Record<PoiCategory, string> = {
   college: "College",
   school: "School",

@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { POI_CATEGORIES, type Bbox, type PoiCategory } from "@spero/shared";
+import {
+  isBusinessTypeId,
+  POI_CATEGORIES,
+  type Bbox,
+  type BusinessTypeId,
+  type PoiCategory,
+} from "@spero/shared";
 import {
   DEFAULT_CELL_SIZE_M,
   DEFAULT_RADIUS_M,
@@ -97,5 +103,16 @@ export const poisQuerySchema = z
     return { bbox: query.bbox, categories: requested as PoiCategory[] };
   });
 
+const businessTypeSchema = z.custom<BusinessTypeId>(
+  (value) => typeof value === "string" && isBusinessTypeId(value),
+  { message: "unknown business type" },
+);
+
+export const placesQuerySchema = z.object({
+  bbox: bboxSchema,
+  type: businessTypeSchema,
+});
+
 export type HotzonesQuery = z.infer<typeof hotzonesQuerySchema>;
 export type PoisQuery = z.infer<typeof poisQuerySchema>;
+export type PlacesQuery = z.infer<typeof placesQuerySchema>;

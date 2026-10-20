@@ -1,8 +1,9 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import Map, { NavigationControl, type MapRef } from "react-map-gl/maplibre";
 import type {
   Bbox,
   HotzoneFeatureCollection,
+  PlaceFeatureCollection,
   PoiFeatureCollection,
 } from "@spero/shared";
 import {
@@ -13,8 +14,10 @@ import {
   MAX_MAP_ZOOM,
   MIN_MAP_ZOOM,
   OSM_STYLE,
+  POI_MIN_ZOOM,
   type BasemapId,
 } from "./constants";
+import { CompetitorLayer } from "./CompetitorLayer";
 import { HotzoneLayer } from "./HotzoneLayer";
 import { PoiLayer } from "./PoiLayer";
 import { SelectedCellOverlay } from "./SelectedCellOverlay";
@@ -24,12 +27,15 @@ interface MapViewProps {
   basemap: BasemapId;
   hotzones?: HotzoneFeatureCollection;
   pois?: PoiFeatureCollection;
+  competitors?: PlaceFeatureCollection;
+  focusedPlaceId: string | null;
   outlineCell: SelectedCell | null;
   selectionMode: SelectionMode;
   locked: boolean;
   onSelect: (cell: SelectedCell) => void;
   onClearSelection: () => void;
   onToggleLock: () => void;
+  onCompetitorSelect: (placeId: string) => void;
   onMoveStart: () => void;
   onViewportChange: (viewport: { bbox: Bbox; zoom: number }) => void;
 }
@@ -65,16 +71,20 @@ export function MapView({
   basemap,
   hotzones,
   pois,
+  competitors,
+  focusedPlaceId,
   outlineCell,
   selectionMode,
   locked,
   onSelect,
   onClearSelection,
   onToggleLock,
+  onCompetitorSelect,
   onMoveStart,
   onViewportChange,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
 
   const reportViewport = useCallback(() => {
     const map = mapRef.current;
@@ -111,6 +121,7 @@ export function MapView({
       onLoad={reportViewport}
       onMoveEnd={reportViewport}
       onMoveStart={onMoveStart}
+      onZoom={(event) => setZoom(event.viewState.zoom)}
       onClick={(event) => {
         // The outline's lock and close buttons sit inside MapLibre's canvas
         // container, so a click on them also reaches the map. Ignore those
@@ -143,6 +154,13 @@ export function MapView({
       <NavigationControl position="bottom-right" />
       <HotzoneLayer data={hotzones} />
       <PoiLayer data={pois} />
+      {zoom >= POI_MIN_ZOOM && (
+        <CompetitorLayer
+          data={competitors}
+          focusedPlaceId={focusedPlaceId}
+          onSelect={onCompetitorSelect}
+        />
+      )}
       {showOutline && outlineCell && (
         <SelectedCellOverlay
           cell={outlineCell}

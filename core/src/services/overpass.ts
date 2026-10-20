@@ -1,4 +1,8 @@
-import type { Bbox, PoiCategory } from "@spero/shared";
+import type { Bbox, BusinessTypeId, PoiCategory } from "@spero/shared";
+import {
+  getBusinessType,
+  type BusinessTypeSource,
+} from "../config/business-types";
 import {
   OVERPASS_COOLDOWN_MS,
   OVERPASS_ENDPOINT_RETRY_DELAY_MS,
@@ -10,7 +14,7 @@ import {
   OVERPASS_URLS,
   OVERPASS_USER_AGENT,
 } from "../config/overpass";
-import type { SourcePoi } from "./poi-types";
+import type { PlaceDetails, SourcePlace, SourcePoi } from "./poi-types";
 
 /** Kept as an alias so existing imports keep reading naturally. */
 export type OverpassPoi = SourcePoi;
@@ -55,6 +59,80 @@ interface OverpassElement {
 
 interface OverpassResponse {
   elements?: OverpassElement[];
+}
+
+function firstValue(
+  ...values: Array<string | undefined | null>
+): string | null {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+function tagValue(
+  tags: Record<string, string>,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = tags[key]?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+function pickRawCategory(tags: Record<string, string>): string | null {
+  const keys = [
+    "amenity",
+    "shop",
+    "leisure",
+    "tourism",
+    "office",
+    "public_transport",
+    "railway",
+  ];
+
+  for (const key of keys) {
+    const value = tags[key]?.trim();
+    if (value) return `${key}=${value}`;
+  }
+
+  return null;
+}
+
+function pickAddress(tags: Record<string, string>): string | null {
+  const full = tags["addr:full"]?.trim();
+  if (full) return full;
+
+  const street = [tags["addr:housenumber"], tags["addr:street"]]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const parts = [
+    street,
+    tags["addr:suburb"],
+    tags["addr:city"],
+    tags["addr:postcode"],
+    tags["addr:state"],
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+function detailsFromTags(tags: Record<string, string>): PlaceDetails {
+  return {
+    rawCategory: pickRawCategory(tags),
+    address: pickAddress(tags),
+    phone: tagValue(tags, [
+      "phone",
+      "contact:phone",
+      "contact:mobile",
+      "mobile",
+    ]),
+    website: tagValue(tags, ["website", "contact:website", "url"]),
+    openingHours: tagValue(tags, ["opening_hours"]),
+  };
 }
 
 /** Map OSM tags to a single crowd category. First match wins. */
@@ -118,6 +196,27 @@ function buildQuery(bbox: Bbox): string {
   ].join("\n");
 }
 
+function buildTypeQuery(bbox: Bbox, source: BusinessTypeSource): string {
+  const selectors = source.osmTags
+    .map(({ key, value }) => `nwr["${key}"="${value}"]${bboxClause(bbox)};`)
+    .join("\n");
+
+  return [
+    `[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_S}];`,
+    selectors,
+    "out tags center;",
+  ].join("\n");
+}
+
+function coordinates(
+  element: OverpassElement,
+): [number, number] | null {
+  const lat = element.lat ?? element.center?.lat;
+  const lng = element.lon ?? element.center?.lon;
+  if (lat === undefined || lng === undefined) return null;
+  return [lng, lat];
+}
+
 function parseElements(response: OverpassResponse): OverpassPoi[] {
   const pois = new Map<string, OverpassPoi>();
 
@@ -127,21 +226,54 @@ function parseElements(response: OverpassResponse): OverpassPoi[] {
     const category = categorize(element.tags);
     if (!category) continue;
 
-    const lat = element.lat ?? element.center?.lat;
-    const lng = element.lon ?? element.center?.lon;
-    if (lat === undefined || lng === undefined) continue;
+    const point = coordinates(element);
+    if (!point) continue;
 
+    const [lng, lat] = point;
     const osmId = `${element.type}/${element.id}`;
     pois.set(osmId, {
       osmId,
       category,
-      name: element.tags.name ?? null,
+      name: firstValue(element.tags.name, element.tags["name:en"]),
       lng,
       lat,
+      ...detailsFromTags(element.tags),
     });
   }
 
   return [...pois.values()];
+}
+
+function parsePlaceElements(
+  response: OverpassResponse,
+  source: BusinessTypeSource,
+): SourcePlace[] {
+  const places = new Map<string, SourcePlace>();
+
+  for (const element of response.elements ?? []) {
+    if (!element.tags) continue;
+
+    const matches = source.osmTags.some(
+      (tag) => element.tags?.[tag.key] === tag.value,
+    );
+    if (!matches) continue;
+
+    const point = coordinates(element);
+    if (!point) continue;
+
+    const [lng, lat] = point;
+    const placeId = `${element.type}/${element.id}`;
+    places.set(placeId, {
+      placeId,
+      type: source.id,
+      name: firstValue(element.tags.name, element.tags["name:en"]),
+      lng,
+      lat,
+      ...detailsFromTags(element.tags),
+    });
+  }
+
+  return [...places.values()];
 }
 
 function sleep(ms: number): Promise<void> {
@@ -236,6 +368,16 @@ async function requestOverpass(query: string): Promise<OverpassResponse> {
 export async function fetchPoisForBbox(bbox: Bbox): Promise<OverpassPoi[]> {
   const response = await requestOverpass(buildQuery(bbox));
   return parseElements(response);
+}
+
+/** Fetch places of one business type for the competitor list. */
+export async function fetchPlacesForType(
+  bbox: Bbox,
+  type: BusinessTypeId,
+): Promise<SourcePlace[]> {
+  const source = getBusinessType(type);
+  const response = await requestOverpass(buildTypeQuery(bbox, source));
+  return parsePlaceElements(response, source);
 }
 
 /** Lightweight reachability check used by `/health`. */

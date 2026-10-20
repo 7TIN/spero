@@ -25,7 +25,7 @@ bun install
 ## Data (hosted provider + local cache)
 
 No database to run, no OSM extract to download, and nothing to self-host.
-Phase 1 reads crowd POIs from the hosted
+Phase 2 reads crowd POIs and competitor places from the hosted
 [Geoapify Places API](https://www.geoapify.com/places-api/) and caches them in a
 local SQLite file (`bun:sqlite`):
 
@@ -42,10 +42,17 @@ cp core/.env.example core/.env
 - Geoapify is used automatically when the key is set. Without a key the app falls
   back to the public Overpass API, which is currently unreliable.
 - The cache lives in `core/data/tiles.sqlite` (gitignored). The map is split into
-  0.05° tiles reused for 30 days, so panning does not spend credits. A cold
-  refresh costs roughly 26–51 credits (500–1,000 places).
-- Switching providers clears the cache automatically, so results from two
-  providers are never mixed.
+  0.05° tiles reused for 30 days, so panning does not spend credits. Crowd POIs
+  and each competitor business type have separate tile sets. A cold crowd
+  refresh costs roughly 26–51 credits (500–1,000 places); a competitor refresh
+  usually costs far less because it asks for one category.
+- `/health` reports today's estimated Geoapify credits and the free-plan limit.
+- Switching providers or changing the cached place shape clears the cache
+  automatically, so results from different providers are never mixed.
+- Place cards show address, phone, website, and opening hours only when the
+  provider supplies them. No photos or Google API calls are used. The
+  "Open in Google Maps" button is a free search URL that opens a new tab.
+- Place data is attributed to Geoapify and OpenStreetMap on the map.
 
 ### Overpass fallback
 
@@ -54,19 +61,6 @@ They default to `overpass-api.de`, with five other global mirrors
 (`kumi.systems`, `private.coffee`, `osm.jp`, `openstreetmap.ru`,
 `nchc.org.tw`); override with `OVERPASS_URLS`. Requests are serialised with a
 minimum gap and back off for 30 s after every endpoint fails.
-
-### Optional: bulk import into PostGIS
-
-The older osm2pgsql path is still in the repo but is not used by phase 1. To use
-it, run `docker compose up -d`, put a `DATABASE_URL` in `core/.env`, install
-[osm2pgsql](https://osm2pgsql.org/doc/install.html) 2.x, and run:
-
-```bash
-bun run db:import
-```
-
-It downloads the western-zone extract into `core/data/` (gitignored), imports
-`pois` with `core/scripts/pois.lua`, and creates the spatial indexes.
 
 ## Web environment
 
@@ -88,15 +82,19 @@ before deploying.
 
 | Method | Route                                                    | Description                        |
 | ------ | -------------------------------------------------------- | ---------------------------------- |
-| GET    | `/health`                                                | API, cache, and Overpass status    |
+| GET    | `/health`                                                | API, cache, credits, and Overpass status |
 | GET    | `/api/hotzones?bbox=minLng,minLat,maxLng,maxLat&cell=250&radius=500` | GeoJSON grid cells with `score` and `breakdown` |
-| GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital` | GeoJSON POIs with `name` and `category` |
+| GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital` | GeoJSON POIs with `name`, `category`, and place details |
+| GET    | `/api/places?bbox=minLng,minLat,maxLng,maxLat&type=cafe` | GeoJSON competitor places for one business type |
 
 `bbox` must span no more than about 15 km in either direction; larger requests
-return `400`.
+return `400`. An unknown `type` on `/api/places` also returns `400`. Supported
+types are `cafe`, `restaurant`, `pharmacy`, `gym`, `salon`, `bakery`, `grocery`,
+`clothing`, `electronics`, and `bank`.
 
-`/health` reports the cache size and the configured Overpass endpoints. Add
-`?probe=1` to also check whether Overpass is reachable right now.
+`/health` reports the cache size, today's estimated Geoapify credits, and the
+configured Overpass endpoints. Add `?probe=1` to also check whether Overpass is
+reachable right now.
 
 ## Development
 
@@ -112,6 +110,7 @@ bun run dev:web    # web only   -> http://localhost:5173
 bun run build      # build every package that defines a build script
 bun run typecheck  # type check every package
 bun run lint       # lint every package that defines a lint script
+bun run test       # run the core unit tests
 ```
 
 ## Workspace packages

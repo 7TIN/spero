@@ -1,4 +1,5 @@
-import type { Bbox, PoiCategory } from "@spero/shared";
+import type { Bbox, BusinessTypeId, PoiCategory } from "@spero/shared";
+import { getBusinessType } from "../config/business-types";
 import {
   GEOAPIFY_API_KEY,
   GEOAPIFY_MAX_PAGES,
@@ -6,7 +7,8 @@ import {
   GEOAPIFY_REQUEST_TIMEOUT_MS,
   GEOAPIFY_URL,
 } from "../config/poi";
-import type { SourcePoi } from "./poi-types";
+import type { PlaceDetails, SourcePlace, SourcePoi } from "./poi-types";
+import { recordGeoapifyCredits } from "./tile-cache";
 
 /** Raised when Geoapify cannot serve a bbox. */
 export class GeoapifyError extends Error {
@@ -71,17 +73,130 @@ const REQUEST_CATEGORIES = [
   ...new Set(CATEGORY_ORDER.flatMap((entry) => entry.keys)),
 ].join(",");
 
+/**
+ * Geoapify can return conditions (for example `wheelchair.yes`) alongside real
+ * categories. Those are not useful as a raw category label.
+ */
+const CONDITION_TOP_LEVELS = new Set([
+  "access",
+  "air_conditioning",
+  "changing_table",
+  "delivery",
+  "dogs",
+  "fee",
+  "internet_access",
+  "outdoor_seating",
+  "payment",
+  "reservation",
+  "smoking",
+  "swimming_pool",
+  "takeaway",
+  "toilets",
+  "wheelchair",
+]);
+
+interface GeoapifyProperties {
+  place_id?: string;
+  name?: string;
+  categories?: string[];
+  formatted?: string;
+  address_line1?: string;
+  address_line2?: string;
+  street?: string;
+  housenumber?: string;
+  city?: string;
+  postcode?: string;
+  state?: string;
+  country?: string;
+  website?: string;
+  phone?: string;
+  opening_hours?: string;
+  datasource?: { raw?: Record<string, unknown> };
+}
+
 interface GeoapifyFeature {
   geometry?: { type?: string; coordinates?: number[] };
-  properties?: {
-    place_id?: string;
-    name?: string;
-    categories?: string[];
-  };
+  properties?: GeoapifyProperties;
 }
 
 interface GeoapifyResponse {
   features?: GeoapifyFeature[];
+}
+
+function firstValue(
+  ...values: Array<string | undefined | null>
+): string | null {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+function rawTag(
+  raw: Record<string, unknown> | undefined,
+  keys: string[],
+): string | null {
+  if (!raw) return null;
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function pickRawCategory(categories: string[] | undefined): string | null {
+  if (!categories) return null;
+
+  const candidates = categories.filter((category) => {
+    const topLevel = category.split(".")[0] ?? "";
+    return !CONDITION_TOP_LEVELS.has(topLevel);
+  });
+
+  return candidates.at(-1) ?? null;
+}
+
+function pickAddress(properties: GeoapifyProperties): string | null {
+  const line2 = properties.address_line2?.trim();
+  if (line2) return line2;
+
+  const street = [properties.housenumber, properties.street]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const parts = [
+    street,
+    properties.city,
+    properties.postcode,
+    properties.state,
+    properties.country,
+  ].filter(Boolean);
+
+  if (parts.length > 0) return parts.join(", ");
+  return properties.formatted?.trim() || null;
+}
+
+function detailsFromProperties(
+  properties: GeoapifyProperties,
+): PlaceDetails {
+  const raw = properties.datasource?.raw;
+
+  return {
+    rawCategory: pickRawCategory(properties.categories),
+    address: pickAddress(properties),
+    phone: firstValue(
+      properties.phone,
+      rawTag(raw, ["phone", "contact:phone", "contact:mobile", "mobile"]),
+    ),
+    website: firstValue(
+      properties.website,
+      rawTag(raw, ["website", "contact:website", "url"]),
+    ),
+    openingHours: firstValue(
+      properties.opening_hours,
+      rawTag(raw, ["opening_hours"]),
+    ),
+  };
 }
 
 function categorize(categories: string[] | undefined): PoiCategory | null {
@@ -103,9 +218,13 @@ function categorize(categories: string[] | undefined): PoiCategory | null {
   return null;
 }
 
-function buildUrl(bbox: Bbox, offset: number): string {
+function buildUrl(
+  bbox: Bbox,
+  categories: string,
+  offset: number,
+): string {
   const params = new URLSearchParams({
-    categories: REQUEST_CATEGORIES,
+    categories,
     filter: `rect:${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`,
     limit: String(GEOAPIFY_PAGE_SIZE),
     offset: String(offset),
@@ -131,12 +250,13 @@ function statusError(status: number): GeoapifyError {
 
 async function requestPage(
   bbox: Bbox,
+  categories: string,
   offset: number,
 ): Promise<GeoapifyResponse> {
   let response: Response;
 
   try {
-    response = await fetch(buildUrl(bbox, offset), {
+    response = await fetch(buildUrl(bbox, categories, offset), {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(GEOAPIFY_REQUEST_TIMEOUT_MS),
     });
@@ -152,34 +272,66 @@ async function requestPage(
     throw statusError(response.status);
   }
 
-  return (await response.json()) as GeoapifyResponse;
+  const body = (await response.json()) as GeoapifyResponse;
+  const returned = body.features?.length ?? 0;
+
+  // Geoapify counts one request plus one credit per 20 returned places.
+  try {
+    recordGeoapifyCredits(1 + Math.ceil(returned / 20));
+  } catch (error) {
+    // Usage tracking must never fail a map request.
+    console.warn(
+      "Could not record Geoapify usage:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
+  return body;
 }
 
-/** Fetch and categorize every crowd POI inside a bbox. */
-export async function fetchPoisForBbox(bbox: Bbox): Promise<SourcePoi[]> {
+function requireApiKey(): void {
   if (!GEOAPIFY_API_KEY) {
     throw new GeoapifyError(
       "GEOAPIFY_API_KEY is not set. Add it to core/.env, or set POI_PROVIDER=overpass.",
     );
   }
+}
+
+function coordinates(
+  feature: GeoapifyFeature,
+): [number, number] | null {
+  const values = feature.geometry?.coordinates;
+  if (!values || values.length < 2) return null;
+
+  const [lng, lat] = values;
+  if (lng === undefined || lat === undefined) return null;
+  return [lng, lat];
+}
+
+/** Fetch and categorize every crowd POI inside a bbox. */
+export async function fetchPoisForBbox(bbox: Bbox): Promise<SourcePoi[]> {
+  requireApiKey();
 
   const pois = new Map<string, SourcePoi>();
 
   for (let page = 0; page < GEOAPIFY_MAX_PAGES; page += 1) {
-    const response = await requestPage(bbox, page * GEOAPIFY_PAGE_SIZE);
+    const response = await requestPage(
+      bbox,
+      REQUEST_CATEGORIES,
+      page * GEOAPIFY_PAGE_SIZE,
+    );
     const features = response.features ?? [];
 
     for (const feature of features) {
-      const coordinates = feature.geometry?.coordinates;
-      if (!coordinates || coordinates.length < 2) continue;
+      const point = coordinates(feature);
+      if (!point) continue;
 
-      const [lng, lat] = coordinates;
-      if (lng === undefined || lat === undefined) continue;
-
-      const category = categorize(feature.properties?.categories);
+      const [lng, lat] = point;
+      const properties = feature.properties ?? {};
+      const category = categorize(properties.categories);
       if (!category) continue;
 
-      const placeId = feature.properties?.place_id;
+      const placeId = properties.place_id;
       const osmId = placeId
         ? `geoapify/${placeId}`
         : `geoapify/${lng.toFixed(6)},${lat.toFixed(6)}`;
@@ -187,9 +339,10 @@ export async function fetchPoisForBbox(bbox: Bbox): Promise<SourcePoi[]> {
       pois.set(osmId, {
         osmId,
         category,
-        name: feature.properties?.name ?? null,
+        name: firstValue(properties.name),
         lng,
         lat,
+        ...detailsFromProperties(properties),
       });
     }
 
@@ -197,4 +350,49 @@ export async function fetchPoisForBbox(bbox: Bbox): Promise<SourcePoi[]> {
   }
 
   return [...pois.values()];
+}
+
+/** Fetch places of one business type for the competitor list. */
+export async function fetchPlacesForType(
+  bbox: Bbox,
+  type: BusinessTypeId,
+): Promise<SourcePlace[]> {
+  requireApiKey();
+
+  const source = getBusinessType(type);
+  const categories = source.geoapifyCategories.join(",");
+  const places = new Map<string, SourcePlace>();
+
+  for (let page = 0; page < GEOAPIFY_MAX_PAGES; page += 1) {
+    const response = await requestPage(
+      bbox,
+      categories,
+      page * GEOAPIFY_PAGE_SIZE,
+    );
+    const features = response.features ?? [];
+
+    for (const feature of features) {
+      const point = coordinates(feature);
+      if (!point) continue;
+
+      const [lng, lat] = point;
+      const properties = feature.properties ?? {};
+      const placeId = properties.place_id
+        ? `geoapify/${properties.place_id}`
+        : `geoapify/${lng.toFixed(6)},${lat.toFixed(6)}`;
+
+      places.set(placeId, {
+        placeId,
+        type,
+        name: firstValue(properties.name),
+        lng,
+        lat,
+        ...detailsFromProperties(properties),
+      });
+    }
+
+    if (features.length < GEOAPIFY_PAGE_SIZE) break;
+  }
+
+  return [...places.values()];
 }

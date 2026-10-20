@@ -5,6 +5,9 @@ const configuredProvider = Bun.env.POI_PROVIDER?.trim().toLowerCase();
 /** Geoapify Places API key. Free plan: 3,000 credits/day. */
 export const GEOAPIFY_API_KEY = Bun.env.GEOAPIFY_API_KEY?.trim() ?? "";
 
+/** Free-plan daily credit allowance, shown by `/health`. */
+export const GEOAPIFY_FREE_DAILY_CREDITS = 3_000;
+
 /**
  * Which hosted provider supplies POIs. Set `POI_PROVIDER` to override;
  * otherwise Geoapify is used when a key is configured, and Overpass when not.

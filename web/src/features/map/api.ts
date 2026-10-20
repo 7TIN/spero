@@ -1,6 +1,8 @@
 import type {
   Bbox,
+  BusinessTypeId,
   HotzoneFeatureCollection,
+  PlaceFeatureCollection,
   PoiCategory,
   PoiFeatureCollection,
 } from "@spero/shared";
@@ -72,4 +74,23 @@ export function fetchPois({
   }
 
   return request<PoiFeatureCollection>("/api/pois", params, signal);
+}
+
+export interface FetchPlacesParams {
+  bbox: Bbox;
+  type: BusinessTypeId;
+  signal?: AbortSignal;
+}
+
+export function fetchPlaces({
+  bbox,
+  type,
+  signal,
+}: FetchPlacesParams): Promise<PlaceFeatureCollection> {
+  const params = new URLSearchParams({
+    bbox: bboxParam(bbox),
+    type,
+  });
+
+  return request<PlaceFeatureCollection>("/api/places", params, signal);
 }

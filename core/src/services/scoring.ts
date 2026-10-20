@@ -10,6 +10,7 @@ import { HOTZONE_BREAKDOWN_LIMIT } from "../config/scoring";
 import { CATEGORY_WEIGHTS } from "../config/weights";
 import { expandBbox, haversineMeters } from "../lib/geo";
 import { buildGrid } from "../lib/grid";
+import type { SourcePoi } from "./poi-types";
 import { getPoisForBbox } from "./poi-source";
 
 export interface HotzonesParams {
@@ -38,6 +39,16 @@ function roundTo(value: number, decimals: number): number {
   return Math.round(value * factor) / factor;
 }
 
+/** Linear distance decay used by every crowd category. */
+export function scoreContribution(
+  weight: number,
+  distanceMeters: number,
+  radiusMeters: number,
+): number {
+  if (distanceMeters < 0 || distanceMeters > radiusMeters) return 0;
+  return weight * (1 - distanceMeters / radiusMeters);
+}
+
 function topBreakdown(
   categories: Map<PoiCategory, CategoryContribution>,
 ): HotzoneBreakdownItem[] {
@@ -51,14 +62,14 @@ function topBreakdown(
     .map(([category, value]) => ({ category, count: value.count }));
 }
 
-export async function getHotzones({
-  bbox,
-  cell,
-  radius,
-}: HotzonesParams): Promise<HotzoneFeatureCollection> {
-  // Pad the search area so POIs just outside the view still count for the
-  // cells along its edges.
-  const pois = await getPoisForBbox(expandBbox(bbox, radius));
+/**
+ * Score a set of POIs into grid cells. Separated from the provider/cache fetch
+ * so the scoring rules can be tested without network or SQLite.
+ */
+export function computeHotzones(
+  pois: ReadonlyArray<SourcePoi>,
+  { bbox, cell, radius }: HotzonesParams,
+): HotzoneFeatureCollection {
   if (pois.length === 0) {
     return { type: "FeatureCollection", features: [] };
   }
@@ -93,9 +104,7 @@ export async function getHotzones({
           poi.lng,
           poi.lat,
         );
-        if (distance > radius) continue;
-
-        const contribution = weight * (1 - distance / radius);
+        const contribution = scoreContribution(weight, distance, radius);
         if (contribution <= 0) continue;
 
         const entry = scores.get(cell.index) ?? {
@@ -152,6 +161,17 @@ export async function getHotzones({
   return { type: "FeatureCollection", features };
 }
 
+export async function getHotzones({
+  bbox,
+  cell,
+  radius,
+}: HotzonesParams): Promise<HotzoneFeatureCollection> {
+  // Pad the search area so POIs just outside the view still count for the
+  // cells along its edges.
+  const pois = await getPoisForBbox(expandBbox(bbox, radius));
+  return computeHotzones(pois, { bbox, cell, radius });
+}
+
 export async function getPois({
   bbox,
   categories,
@@ -176,6 +196,11 @@ export async function getPois({
         properties: {
           name: poi.name,
           category: poi.category,
+          rawCategory: poi.rawCategory,
+          address: poi.address,
+          phone: poi.phone,
+          website: poi.website,
+          openingHours: poi.openingHours,
         },
       })),
   };

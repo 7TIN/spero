@@ -11,8 +11,8 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
-    "db:import": "bun scripts/import-osm.ts",
-    "typecheck": "bun check"
+    "typecheck": "bun check",
+    "test": "bun test"
   },
   "dependencies": {
     "@spero/shared": "workspace:*",

@@ -4,8 +4,9 @@ import { OVERPASS_URLS } from './config/overpass'
 import { POI_PROVIDER } from './config/poi'
 import { GeoapifyError } from './services/geoapify'
 import { OverpassError, probeOverpass } from './services/overpass'
-import { cacheStats } from './services/tile-cache'
+import { cacheStats, geoapifyCreditsToday } from './services/tile-cache'
 import { hotzonesRoute } from './routes/hotzones'
+import { placesRoute } from './routes/places'
 import { poisRoute } from './routes/pois'
 
 const allowedOrigins = (Bun.env.CORS_ORIGIN ?? 'http://localhost:5173')
@@ -30,12 +31,16 @@ app.get('/', (c) => {
 app.get('/health', async (c) => {
   try {
     const cache = cacheStats()
+    const credits = geoapifyCreditsToday()
     const body = {
       status: 'ok' as const,
       cache: 'sqlite' as const,
       provider: POI_PROVIDER,
       tiles: cache.tiles,
       pois: cache.pois,
+      competitorTiles: cache.competitorTiles,
+      competitors: cache.competitors,
+      geoapifyCredits: credits,
       overpass: OVERPASS_URLS,
     }
 
@@ -59,6 +64,7 @@ app.get('/health', async (c) => {
 
 app.route('/api/hotzones', hotzonesRoute)
 app.route('/api/pois', poisRoute)
+app.route('/api/places', placesRoute)
 
 app.onError((error, c) => {
   if (error instanceof OverpassError || error instanceof GeoapifyError) {

@@ -1,8 +1,8 @@
 # @spero/core
 
-Hono API running on Bun. Crowd data comes from the hosted Geoapify Places API
-(with Overpass as an optional fallback) and is cached locally in SQLite
-(`bun:sqlite`); no database server is required.
+Hono API running on Bun. Crowd data and competitor places come from the hosted
+Geoapify Places API (with Overpass as an optional fallback) and are cached
+locally in SQLite (`bun:sqlite`); no database server is required.
 
 ## Development
 
@@ -41,32 +41,39 @@ cp core/.env.example core/.env
 - `TILE_CACHE_PATH` — SQLite file. Defaults to `core/data/tiles.sqlite`
   (gitignored).
 
-The map is split into 0.05° tiles. A tile is fetched once and reused for 30 days
-(see `src/config/cache.ts`). If the provider is unreachable, stale tiles are
-served instead of failing the request. Changing `POI_PROVIDER` clears the cache
-so results from two providers are never mixed.
+The map is split into 0.05° tiles. Crowd POIs and each competitor business type
+have separate tile sets, fetched once and reused for 30 days (see
+`src/config/cache.ts`). If the provider is unreachable, stale tiles are served
+instead of failing the request. Changing `POI_PROVIDER` or the cached place
+shape clears the cache so results from two providers are never mixed.
 
-### Optional: bulk import into PostGIS
-
-`scripts/import-osm.ts` is the older osm2pgsql path and is not used by phase 1.
-It needs Docker, `DATABASE_URL` in `core/.env`, and osm2pgsql 2.x on `PATH`:
-
-```bash
-bun run db:import
-```
+Geoapify credit use is estimated (one request credit plus one per 20 returned
+places) and reported by `/health`; competitor requests are capped at two pages
+of 500 places.
 
 ## API
 
 | Method | Route                                                                   | Description                                      |
 | ------ | ----------------------------------------------------------------------- | ------------------------------------------------ |
-| GET    | `/health`                                                               | Cache size and POI provider (`?probe=1` checks Overpass reachability) |
+| GET    | `/health`                                                               | Cache size, credits, and POI provider (`?probe=1` checks Overpass reachability) |
 | GET    | `/api/hotzones?bbox=minLng,minLat,maxLng,maxLat&cell=250&radius=500`     | GeoJSON grid cells with `score` and `breakdown`  |
-| GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital`  | GeoJSON POIs with `name` and `category`          |
+| GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital`  | GeoJSON POIs with `name`, `category`, and details |
+| GET    | `/api/places?bbox=minLng,minLat,maxLng,maxLat&type=cafe`                 | GeoJSON competitor places for one business type  |
 
 `bbox` is validated with Zod and must span no more than about 15 km in either
-direction. Category weights, tile settings, and scoring defaults live in
-`src/config`. Grid generation is in `src/lib/grid.ts` and the TypeScript scoring
-in `src/services/scoring.ts`.
+direction. An unknown business type also returns `400`. Category weights, tile
+settings, scoring defaults, and the business-type mapping live in `src/config`.
+Grid generation is in `src/lib/grid.ts` and the TypeScript scoring in
+`src/services/scoring.ts`.
+
+## Tests
+
+```bash
+bun test
+```
+
+Covers scoring, grid generation, bbox/business-type validation, and the
+business-type provider mapping.
 
 ## Entry point
 
