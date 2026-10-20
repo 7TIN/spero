@@ -124,10 +124,15 @@ export function MapView({
       onZoom={(event) => setZoom(event.viewState.zoom)}
       onClick={(event) => {
         // The outline's lock and close buttons sit inside MapLibre's canvas
-        // container, so a click on them also reaches the map. Ignore those
-        // clicks instead of selecting whatever cell sits under the button.
+        // container, so their clicks bubble to the map. Ignore marker clicks,
+        // and ignore targets that the click handler already removed (the
+        // overlay's own close button) instead of selecting the cell beneath.
         const target = event.originalEvent.target;
-        if (target instanceof Element && target.closest(".maplibregl-marker")) {
+        if (
+          !(target instanceof Element) ||
+          !target.isConnected ||
+          target.closest(".maplibregl-marker")
+        ) {
           return;
         }
 

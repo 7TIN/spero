@@ -82,7 +82,10 @@ export function SelectedCellOverlay({
               ? "Unlock the grid: score the whole view again"
               : "Lock the grid: only score cells inside this one"
           }
-          onClick={onToggleLock}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleLock();
+          }}
         >
           {locked ? (
             <Lock className="size-4" />
@@ -103,7 +106,10 @@ export function SelectedCellOverlay({
           className={iconButtonClass}
           aria-label="Clear the selected cell"
           title="Clear the selected cell"
-          onClick={onClear}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClear();
+          }}
         >
           <X className="size-4" />
         </button>
