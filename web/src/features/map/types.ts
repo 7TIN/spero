@@ -15,6 +15,18 @@ export interface SelectedCell {
 }
 
 /**
+ * A request to move the map. The incrementing id lets the same place be
+ * selected twice without the view effect treating it as a no-op.
+ */
+export interface FlyToTarget {
+  id: number;
+  latitude: number;
+  longitude: number;
+  bbox: Bbox | null;
+  label: string;
+}
+
+/**
  * Normal keeps the map as it is. Selection keeps a clicked cell outlined so it
  * stays recognisable while the grid around it is re-scored.
  */

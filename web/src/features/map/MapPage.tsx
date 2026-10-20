@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   POI_CATEGORIES,
   type BusinessTypeId,
+  type GeocodeResult,
   type PoiCategory,
 } from "@spero/shared";
 import { useDebouncedValue } from "../../lib/use-debounced-value";
@@ -16,8 +17,14 @@ import {
 } from "./constants";
 import { CellDetailPanel } from "./CellDetailPanel";
 import { haversineMeters } from "./geo";
+import { MapSearch } from "./MapSearch";
 import { MapView } from "./MapView";
-import type { MapViewport, SelectedCell, SelectionMode } from "./types";
+import type {
+  FlyToTarget,
+  MapViewport,
+  SelectedCell,
+  SelectionMode,
+} from "./types";
 import { useHotzones } from "./useHotzones";
 import { usePlaces } from "./usePlaces";
 import { usePois } from "./usePois";
@@ -46,6 +53,8 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
   const [lockedCell, setLockedCell] = useState<SelectedCell | null>(null);
   const [businessType, setBusinessType] = useState<BusinessTypeId | null>(null);
   const [focusedPlaceId, setFocusedPlaceId] = useState<string | null>(null);
+  const [flyToTarget, setFlyToTarget] = useState<FlyToTarget | null>(null);
+  const flyToId = useRef(0);
   const locked = lockedCell !== null;
 
   const debouncedViewport = useDebouncedValue(viewport, MOVE_DEBOUNCE_MS);
@@ -175,6 +184,17 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     setFocusedPlaceId(placeId);
   }, []);
 
+  const handleSearchSelect = useCallback((result: GeocodeResult) => {
+    flyToId.current += 1;
+    setFlyToTarget({
+      id: flyToId.current,
+      latitude: result.latitude,
+      longitude: result.longitude,
+      bbox: result.bbox,
+      label: result.name,
+    });
+  }, []);
+
   const error =
     hotzones.error instanceof Error
       ? hotzones.error.message
@@ -192,6 +212,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         focusedPlaceId={focusedPlaceId}
         outlineCell={lockedCell ?? selectedCell}
         selectionMode={mode}
+        flyToTarget={flyToTarget}
         locked={locked}
         onSelect={handleSelect}
         onClearSelection={handleClearSelection}
@@ -200,6 +221,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         onMoveStart={handleMoveStart}
         onViewportChange={handleViewportChange}
       />
+      <MapSearch onSelect={handleSearchSelect} />
       <CellDetailPanel
         cell={selectedCell}
         competitorArea={competitorArea}

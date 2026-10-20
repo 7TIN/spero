@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Map, { NavigationControl, type MapRef } from "react-map-gl/maplibre";
 import type {
   Bbox,
@@ -21,7 +21,7 @@ import { CompetitorLayer } from "./CompetitorLayer";
 import { HotzoneLayer } from "./HotzoneLayer";
 import { PoiLayer } from "./PoiLayer";
 import { SelectedCellOverlay } from "./SelectedCellOverlay";
-import type { SelectedCell, SelectionMode } from "./types";
+import type { FlyToTarget, SelectedCell, SelectionMode } from "./types";
 
 interface MapViewProps {
   basemap: BasemapId;
@@ -31,6 +31,7 @@ interface MapViewProps {
   focusedPlaceId: string | null;
   outlineCell: SelectedCell | null;
   selectionMode: SelectionMode;
+  flyToTarget: FlyToTarget | null;
   locked: boolean;
   onSelect: (cell: SelectedCell) => void;
   onClearSelection: () => void;
@@ -75,6 +76,7 @@ export function MapView({
   focusedPlaceId,
   outlineCell,
   selectionMode,
+  flyToTarget,
   locked,
   onSelect,
   onClearSelection,
@@ -101,6 +103,37 @@ export function MapView({
       zoom: map.getZoom(),
     });
   }, [onViewportChange]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !flyToTarget) return;
+
+    const { latitude, longitude, bbox } = flyToTarget;
+    if (!bbox) {
+      map.flyTo({ center: [longitude, latitude], zoom: 15, duration: 1_200 });
+      return;
+    }
+
+    const span = Math.max(
+      bbox.maxLng - bbox.minLng,
+      bbox.maxLat - bbox.minLat,
+    );
+
+    // The scoring API accepts about 15 km per side. Fit smaller results, but
+    // centre large administrative areas at a workable neighbourhood zoom.
+    if (span > 0.12) {
+      map.flyTo({ center: [longitude, latitude], zoom: 13, duration: 1_200 });
+      return;
+    }
+
+    map.fitBounds(
+      [
+        [bbox.minLng, bbox.minLat],
+        [bbox.maxLng, bbox.maxLat],
+      ],
+      { padding: 80, maxZoom: 16, duration: 1_200 },
+    );
+  }, [flyToTarget]);
 
   const showOutline = selectionMode === "selection" && outlineCell !== null;
 

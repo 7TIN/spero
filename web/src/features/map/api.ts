@@ -1,6 +1,7 @@
 import type {
   Bbox,
   BusinessTypeId,
+  GeocodeResponse,
   HotzoneFeatureCollection,
   PlaceFeatureCollection,
   PoiCategory,
@@ -93,4 +94,18 @@ export function fetchPlaces({
   });
 
   return request<PlaceFeatureCollection>("/api/places", params, signal);
+}
+
+export interface FetchGeocodeParams {
+  query: string;
+  signal?: AbortSignal;
+}
+
+export function fetchGeocode({
+  query,
+  signal,
+}: FetchGeocodeParams): Promise<GeocodeResponse> {
+  const params = new URLSearchParams({ q: query, limit: "5" });
+
+  return request<GeocodeResponse>("/api/geocode", params, signal);
 }
