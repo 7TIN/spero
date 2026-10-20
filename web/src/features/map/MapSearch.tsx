@@ -66,8 +66,9 @@ export function MapSearch({ onSelect }: MapSearchProps) {
   }
 
   function choose(result: GeocodeResult) {
+    // Keep the submitted query key intact so choosing a result does not fire a
+    // second Nominatim request for the result's short name.
     setQuery(result.name);
-    setSubmittedQuery(result.name);
     setOpen(false);
     setActiveIndex(-1);
     onSelect(result);
@@ -103,11 +104,18 @@ export function MapSearch({ onSelect }: MapSearchProps) {
             ref={inputRef}
             value={query}
             onChange={(event) => {
-              setQuery(event.target.value);
-              if (event.target.value.trim().length < 2) setSubmittedQuery("");
+              const value = event.target.value;
+              setQuery(value);
+              if (value.trim().length < 2) setSubmittedQuery("");
+              if (value.trim() !== submittedQuery) {
+                setOpen(false);
+                setActiveIndex(-1);
+              }
             }}
             onFocus={() => {
-              if (submittedQuery.length >= 2) setOpen(true);
+              if (query.trim() === submittedQuery && submittedQuery.length >= 2) {
+                setOpen(true);
+              }
             }}
             onKeyDown={(event) => {
               if (event.key === "Escape") {
