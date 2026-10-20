@@ -505,11 +505,6 @@ export function CellDetailPanel({
               error={competitorsError}
               focusedPlaceId={focusedPlaceId}
             />
-            <p className="border-t pt-3 text-[11px] leading-relaxed text-muted-foreground">
-              Showing the standalone competitor layer for the current view.
-              Select a hot-zone cell for its crowd score and full place
-              breakdown.
-            </p>
           </CardContent>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
@@ -518,7 +513,7 @@ export function CellDetailPanel({
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium">Select a cell</p>
-              <p className="text-xs leading-relaxed text-muted-foreground">
+              <p className="text-[11px] leading-snug text-muted-foreground">
                 Click any hot-zone cell on the map, or reopen one of your pinned
                 cells above. Choose a business type to see competitors in view.
               </p>

@@ -116,7 +116,7 @@ export const HOTZONE_FILL_OPACITY = 0.55;
 export const COMPETITOR_COLOR = "#d946ef";
 
 export const PLACES_ATTRIBUTION =
-  'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a> | &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
+  'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a>';
 
 export const CATEGORY_LABELS: Record<PoiCategory, string> = {
   college: "College",

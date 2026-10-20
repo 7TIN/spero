@@ -5,7 +5,6 @@ import { Button } from "../../components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
@@ -82,9 +81,6 @@ export function ControlPanel({
                 Phase 2
               </Badge>
             </CardTitle>
-            <CardDescription>
-              Crowd hot zones and nearby competitors from OpenStreetMap
-            </CardDescription>
           </div>
           <Button
             variant="ghost"
@@ -148,12 +144,6 @@ export function ControlPanel({
               </Button>
             </div>
           </div>
-          {mode === "selection" && (
-            <p className="text-xs text-muted-foreground">
-              Click a cell to keep its dotted outline. Use the pin button to save
-              several areas, then reopen them from the left panel.
-            </p>
-          )}
         </div>
 
         <div className="space-y-2">
@@ -276,28 +266,6 @@ export function ControlPanel({
             <span>100</span>
           </div>
         </div>
-
-        <p className="border-t pt-3 text-[10px] leading-relaxed text-muted-foreground">
-          Places powered by{" "}
-          <a
-            className="underline underline-offset-2 hover:text-foreground"
-            href="https://www.geoapify.com/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Geoapify
-          </a>{" "}
-          · ©{" "}
-          <a
-            className="underline underline-offset-2 hover:text-foreground"
-            href="https://www.openstreetmap.org/copyright"
-            target="_blank"
-            rel="noreferrer"
-          >
-            OpenStreetMap
-          </a>{" "}
-          contributors
-        </p>
       </CardContent>
     </Card>
   );
