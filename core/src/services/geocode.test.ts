@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  alternateLocalitySpelling,
   normalizeNominatimResult,
   normalizeNominatimResults,
+  resultMatchesQuery,
 } from "./geocode";
 
 describe("normalizeNominatimResult", () => {
@@ -79,5 +81,43 @@ describe("normalizeNominatimResults", () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.name).toBe("Valid");
     expect(normalizeNominatimResults({ error: "not an array" })).toEqual([]);
+  });
+});
+
+describe("locality query matching", () => {
+  const wakad = normalizeNominatimResult({
+    lat: "18.5920497",
+    lon: "73.7579029",
+    name: "Wakad Flyover",
+    display_name: "Wakad Flyover, Wakad gaav, Pune, Maharashtra, India",
+  });
+  const hinjawadi = normalizeNominatimResult({
+    lat: "18.5927532",
+    lon: "73.7382151",
+    name: "Hinjawadi",
+    display_name: "Hinjawadi, Pune, Maharashtra, India",
+  });
+
+  test("rejects a fuzzy result that does not contain the query", () => {
+    expect(wakad).not.toBeNull();
+    expect(resultMatchesQuery("Hinjewadi", wakad!)).toBe(false);
+    expect(resultMatchesQuery("Pune", wakad!)).toBe(true);
+    expect(resultMatchesQuery("Hinjewadi, Pune", wakad!)).toBe(false);
+  });
+
+  test("accepts a result whose name contains the query", () => {
+    expect(hinjawadi).not.toBeNull();
+    expect(resultMatchesQuery("Hinjawadi", hinjawadi!)).toBe(true);
+    expect(resultMatchesQuery("Hinjawadi, Pune", hinjawadi!)).toBe(true);
+  });
+
+  test("generates the alternate -wadi spelling", () => {
+    expect(alternateLocalitySpelling("Hinjewadi, Pune")).toBe(
+      "Hinjawadi, Pune",
+    );
+    expect(alternateLocalitySpelling("Hinjawadi, Pune")).toBe(
+      "Hinjewadi, Pune",
+    );
+    expect(alternateLocalitySpelling("Baner, Pune")).toBeNull();
   });
 });

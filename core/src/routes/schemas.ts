@@ -176,6 +176,12 @@ export const agentContextSchema = z.object({
       { message: "unknown business type" },
     )
     .nullable(),
+  customBusinessLabel: z
+    .string()
+    .trim()
+    .max(CUSTOM_BUSINESS_LABEL_MAX_LENGTH)
+    .nullable()
+    .default(null),
   cellSize: z.number().int().min(MIN_CELL_SIZE_M).max(MAX_CELL_SIZE_M),
   radius: z.number().int().min(MIN_RADIUS_M).max(MAX_RADIUS_M),
   enabledCategories: z

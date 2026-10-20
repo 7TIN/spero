@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   BUSINESS_TYPE_OPTIONS,
+  CUSTOM_BUSINESS_TYPE,
   type AgentContext,
   type AgentResponse,
 } from "@spero/shared";
@@ -31,7 +32,9 @@ function appliedChips(response: AgentResponse): string[] {
   if (response.location.result) {
     chips.push(`Moved to ${response.location.result.name}`);
   }
-  if (actions.businessType) {
+  if (actions.customBusinessLabel) {
+    chips.push(`Compare: ${actions.customBusinessLabel}`);
+  } else if (actions.businessType && actions.businessType !== CUSTOM_BUSINESS_TYPE) {
     const option = BUSINESS_TYPE_OPTIONS.find(
       (entry) => entry.id === actions.businessType,
     );

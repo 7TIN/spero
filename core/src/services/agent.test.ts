@@ -12,6 +12,7 @@ const context: AgentContext = {
   zoom: 15,
   selectedCell: null,
   businessType: null,
+  customBusinessLabel: null,
   cellSize: 250,
   radius: 500,
   enabledCategories: [
@@ -53,12 +54,39 @@ describe("planWithRules", () => {
     expect(plan.actions.clearSelection).toBe(true);
   });
 
+  test("maps a custom business, named area, and requested place categories", () => {
+    const plan = planWithRules(
+      "I wanted to open Pet Store in the hinjewadi so find the place where places present are like Market College Hotel",
+      context,
+    );
+
+    expect(plan.actions.businessType).toBe("custom");
+    expect(plan.actions.businessLabel).toBe("Pet Store");
+    expect(plan.locationQuery).toBe("hinjewadi");
+    expect(plan.useCurrentView).toBe(false);
+    expect(plan.actions.clearSelection).toBe(true);
+    expect(plan.actions.categories).toEqual(
+      expect.arrayContaining(["market", "college", "hotel"]),
+    );
+    expect(plan.reply).toContain("Pet Store");
+    expect(plan.reply).toContain("colleges");
+  });
+
   test("does not treat 'this area' as a place name", () => {
     const plan = planWithRules("show gyms in this area", context);
 
     expect(plan.actions.businessType).toBe("gym");
     expect(plan.locationQuery).toBe("");
     expect(plan.useCurrentView).toBe(true);
+  });
+
+  test("keeps 'the area' as the current view", () => {
+    const plan = planWithRules("show cafes in the area", context);
+
+    expect(plan.actions.businessType).toBe("cafe");
+    expect(plan.locationQuery).toBe("");
+    expect(plan.useCurrentView).toBe(true);
+    expect(plan.actions.clearSelection).toBe(true);
   });
 
   test("extracts category, range, and basemap controls", () => {
@@ -99,6 +127,7 @@ describe("parseAgentPlan", () => {
         useCurrentView: false,
         actions: {
           businessType: "gym",
+          businessLabel: "",
           categories: [],
           cellSizeMeters: 0,
           radiusMeters: 750,
@@ -113,6 +142,25 @@ describe("parseAgentPlan", () => {
     expect(plan.locationQuery).toBe("Baner, Pune");
     expect(plan.actions.cellSizeMeters).toBe(0);
     expect(plan.actions.radiusMeters).toBe(750);
+  });
+
+  test("accepts a custom business label", () => {
+    const plan = parseAgentPlan(
+      JSON.stringify({
+        reply: "Showing pet store competitors around Hinjewadi.",
+        locationQuery: "Hinjewadi, Pune",
+        useCurrentView: false,
+        actions: {
+          businessType: "custom",
+          businessLabel: "Pet Store",
+          categories: ["market", "college", "hotel"],
+        },
+      }),
+    );
+
+    expect(plan.actions.businessType).toBe("custom");
+    expect(plan.actions.businessLabel).toBe("Pet Store");
+    expect(plan.actions.categories).toEqual(["market", "college", "hotel"]);
   });
 
   test("parses a fenced JSON response and applies defaults", () => {

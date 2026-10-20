@@ -140,6 +140,7 @@ describe("agent request validation", () => {
     zoom: 15,
     selectedCell: null,
     businessType: null,
+    customBusinessLabel: null,
     cellSize: 250,
     radius: 500,
     enabledCategories: ["school", "hospital"],
@@ -173,5 +174,19 @@ describe("agent request validation", () => {
         context,
       }).success,
     ).toBe(false);
+  });
+
+  test("defaults the custom business label for older contexts", () => {
+    const { customBusinessLabel: _customBusinessLabel, ...legacyContext } =
+      context;
+    const result = agentRequestSchema.safeParse({
+      query: "open a pet store in Hinjewadi",
+      context: legacyContext,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.context.customBusinessLabel).toBeNull();
+    }
   });
 });

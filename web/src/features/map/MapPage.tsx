@@ -317,7 +317,13 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
       } else if (actions.mode === "selection") {
         setMode("selection");
       }
-      if (actions.businessType !== null) {
+      if (actions.customBusinessLabel) {
+        setBusinessType(null);
+        setCustomBusinessLabel(actions.customBusinessLabel);
+      } else if (actions.businessType === CUSTOM_BUSINESS_TYPE) {
+        setBusinessType(null);
+        setCustomBusinessLabel(null);
+      } else if (actions.businessType !== null) {
         setBusinessType(actions.businessType);
         setCustomBusinessLabel(null);
       }
@@ -350,6 +356,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
           }
         : null,
       businessType,
+      customBusinessLabel,
       cellSize,
       radius,
       enabledCategories,
@@ -360,6 +367,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
       viewport,
       selectedCell,
       businessType,
+      customBusinessLabel,
       cellSize,
       radius,
       enabledCategories,

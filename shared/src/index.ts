@@ -113,6 +113,7 @@ export interface AgentContext {
     score: number;
   } | null;
   businessType: BusinessTypeId | null;
+  customBusinessLabel: string | null;
   cellSize: number;
   radius: number;
   enabledCategories: PoiCategory[];
@@ -130,7 +131,8 @@ export interface AgentLocation {
 
 /** Validated controls the web app should apply after an agent response. */
 export interface AgentActions {
-  businessType: BusinessTypeId | null;
+  businessType: BusinessTypeKey | null;
+  customBusinessLabel: string | null;
   categories: PoiCategory[] | null;
   cellSizeMeters: number | null;
   radiusMeters: number | null;

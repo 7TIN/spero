@@ -177,6 +177,47 @@ function CompetitorSection({
   );
 }
 
+function CustomBusinessForm({
+  label,
+  onCompare,
+}: {
+  label: string;
+  onCompare: (label: string) => void;
+}) {
+  const [draft, setDraft] = useState(label);
+
+  return (
+    <form
+      className="flex items-center gap-1.5 pt-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const value = draft.trim();
+        if (value.length < 2) return;
+        setDraft(value);
+        onCompare(value);
+      }}
+    >
+      <input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        maxLength={CUSTOM_BUSINESS_LABEL_MAX_LENGTH}
+        placeholder="e.g. Pet store"
+        aria-label="Custom business type"
+        className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs shadow-ace outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        className="h-8 px-2 text-[11px]"
+        disabled={draft.trim().length < 2}
+      >
+        Compare
+      </Button>
+    </form>
+  );
+}
+
 export function CellDetailPanel({
   cell,
   competitorArea,
@@ -206,7 +247,6 @@ export function CellDetailPanel({
     enabledCategories,
   );
   const [copied, setCopied] = useState(false);
-  const [customDraft, setCustomDraft] = useState(customBusinessLabel ?? "");
   const customOpen = customBusinessLabel !== null;
 
   const groups = useMemo<CategoryGroup[]>(() => {
@@ -444,13 +484,11 @@ export function CellDetailPanel({
             onChange={(event) => {
               const value = event.target.value;
               if (value === CUSTOM_BUSINESS_TYPE) {
-                setCustomDraft(customBusinessLabel ?? "");
                 onBusinessTypeChange(null);
                 onCustomBusinessChange("");
                 return;
               }
 
-              setCustomDraft("");
               onBusinessTypeChange(isBusinessTypeId(value) ? value : null);
             }}
           >
@@ -468,35 +506,14 @@ export function CellDetailPanel({
         </div>
 
         {customOpen && (
-          <form
-            className="flex items-center gap-1.5 pt-1"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const label = customDraft.trim();
-              if (label.length < 2) return;
-              setCustomDraft(label);
+          <CustomBusinessForm
+            key={customBusinessLabel ?? ""}
+            label={customBusinessLabel ?? ""}
+            onCompare={(label) => {
               onBusinessTypeChange(null);
               onCustomBusinessChange(label);
             }}
-          >
-            <input
-              value={customDraft}
-              onChange={(event) => setCustomDraft(event.target.value)}
-              maxLength={CUSTOM_BUSINESS_LABEL_MAX_LENGTH}
-              placeholder="e.g. Pet store"
-              aria-label="Custom business type"
-              className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs shadow-ace outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="h-8 px-2 text-[11px]"
-              disabled={customDraft.trim().length < 2}
-            >
-              Compare
-            </Button>
-          </form>
+          />
         )}
       </div>
 

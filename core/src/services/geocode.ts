@@ -112,6 +112,66 @@ export function normalizeNominatimResults(
     .filter((entry): entry is GeocodeResult => entry !== null);
 }
 
+const PLACE_STOP_WORDS = new Set([
+  "and",
+  "around",
+  "at",
+  "district",
+  "in",
+  "india",
+  "maharashtra",
+  "near",
+  "of",
+  "the",
+]);
+
+function placeTokens(value: string): string[] {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * True when the first distinctive word of the query appears in the result.
+ * This is deliberately tolerant of extra address text, but it catches the
+ * common Nominatim case where a fuzzy match returns an unrelated road.
+ */
+export function resultMatchesQuery(
+  query: string,
+  result: GeocodeResult,
+): boolean {
+  const tokens = placeTokens(query);
+  const distinctive = tokens.find((token) => !PLACE_STOP_WORDS.has(token));
+  if (!distinctive) return true;
+
+  const haystack = placeTokens(`${result.name} ${result.label}`);
+  return haystack.some(
+    (token) =>
+      token === distinctive ||
+      token.startsWith(distinctive) ||
+      distinctive.startsWith(token),
+  );
+}
+
+/**
+ * Marathi place names ending in -wadi are often written with either an "e" or
+ * an "a" before the suffix. Nominatim stores the OSM spelling, so try the
+ * other common spelling when a free-text result does not match the query.
+ */
+export function alternateLocalitySpelling(query: string): string | null {
+  const variants = [
+    query.replace(/([a-z])ewadi\b/gi, "$1awadi"),
+    query.replace(/([a-z])awadi\b/gi, "$1ewadi"),
+  ].filter((value) => value !== query);
+
+  return variants[0] ?? null;
+}
+
 function readCache(key: string): GeocodeResult[] | null {
   const entry = cache.get(key);
   if (!entry) return null;
@@ -199,7 +259,7 @@ async function fetchNominatim(
  * explicit user actions, not autocomplete, so public Nominatim's one-request-
  * per-second policy is respected.
  */
-export async function searchPlaces(
+async function searchPlacesOnce(
   query: string,
   limit: number,
 ): Promise<GeocodeResult[]> {
@@ -222,4 +282,32 @@ export async function searchPlaces(
 
   inFlight.set(key, request);
   return request;
+}
+
+export async function searchPlaces(
+  query: string,
+  limit: number,
+): Promise<GeocodeResult[]> {
+  const normalizedQuery = query.trim();
+  const results = await searchPlacesOnce(normalizedQuery, limit);
+  const best = results[0];
+
+  if (best && resultMatchesQuery(normalizedQuery, best)) {
+    return results;
+  }
+
+  const alternateQuery = alternateLocalitySpelling(normalizedQuery);
+  if (!alternateQuery) return results;
+
+  const alternateResults = await searchPlacesOnce(alternateQuery, limit);
+  const alternateBest = alternateResults[0];
+  if (!alternateBest) return results;
+  if (
+    results.length === 0 ||
+    resultMatchesQuery(alternateQuery, alternateBest)
+  ) {
+    return alternateResults;
+  }
+
+  return results;
 }

@@ -80,11 +80,15 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 ```
 
 Without `GEMINI_API_KEY`, `/api/agent` uses a deterministic quick planner that
-handles common locations, business types, categories, basemaps, and range
-controls. The agent can:
+handles common locations, preset and custom business types, categories,
+basemaps, and range controls. For example, "I want to open a pet store in
+Hinjewadi and find places like markets, colleges, and hotels" selects the custom
+Pet Store competitor, moves to Hinjewadi, and enables those three categories.
+The agent can:
 
 - move the map to a city, neighbourhood, or address;
-- switch the competitor business type and show competitors in the new view;
+- switch the competitor business type, including a custom name such as Pet Store,
+  and show competitors in the new view;
 - enable place categories;
 - change cell size, reach radius, basemap, and selection mode;
 - clear a selected cell so the standalone viewport competitor layer is used.
@@ -138,7 +142,8 @@ for a user-entered business; the label must be 2–60 characters.
 `POST /api/agent` accepts `{ "query": "...", "context": { ... } }` where
 `context` is the current view, selection, filters, and range controls. It
 returns `{ message, source, location, actions }`; unsupported model output is
-rejected instead of being applied.
+rejected instead of being applied. A plan can set a preset `businessType`, or
+set `businessType: "custom"` with a `customBusinessLabel` for any other business.
 
 `/health` reports the cache size, today's estimated Geoapify credits, and the
 configured Overpass endpoints. Add `?probe=1` to also check whether Overpass is
