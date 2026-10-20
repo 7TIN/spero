@@ -49,6 +49,25 @@ export interface Bbox {
   maxLat: number;
 }
 
+/** One address or place search hit from the geocoder. */
+export interface GeocodeResult {
+  id: string;
+  /** Short name, usually the first part of the display label. */
+  name: string;
+  /** Full address or place label. */
+  label: string;
+  /** Nominatim's place type, e.g. "city", "suburb", or "house". */
+  category: string | null;
+  latitude: number;
+  longitude: number;
+  /** Optional bounds so the map can fit a city or neighbourhood. */
+  bbox: Bbox | null;
+}
+
+export interface GeocodeResponse {
+  results: GeocodeResult[];
+}
+
 /** Optional place metadata kept alongside every cached POI/competitor. */
 export interface PlaceDetails {
   rawCategory: string | null;

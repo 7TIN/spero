@@ -53,6 +53,11 @@ cp core/.env.example core/.env
   provider supplies them. No photos or Google API calls are used. The
   "Open in Google Maps" button is a free search URL that opens a new tab.
 - Place data is attributed to Geoapify and OpenStreetMap on the map.
+- Address and place search uses the public
+  [Nominatim](https://nominatim.openstreetmap.org/) endpoint. Searches run only
+  when submitted, are cached for ten minutes, and are serialised to respect
+  Nominatim's one-request-per-second policy. Set `NOMINATIM_URL` to a
+  self-hosted instance for production traffic.
 
 ### Overpass fallback
 
@@ -86,6 +91,7 @@ before deploying.
 | GET    | `/api/hotzones?bbox=minLng,minLat,maxLng,maxLat&cell=250&radius=500` | GeoJSON grid cells with `score` and `breakdown` |
 | GET    | `/api/pois?bbox=minLng,minLat,maxLng,maxLat&categories=school,hospital` | GeoJSON POIs with `name`, `category`, and place details |
 | GET    | `/api/places?bbox=minLng,minLat,maxLng,maxLat&type=cafe` | GeoJSON competitor places for one business type |
+| GET    | `/api/geocode?q=Koregaon%20Park&limit=5`                  | Address/place search results with coordinates and optional bounds |
 
 `bbox` must span no more than about 15 km in either direction; larger requests
 return `400`. An unknown `type` on `/api/places` also returns `400`. Supported

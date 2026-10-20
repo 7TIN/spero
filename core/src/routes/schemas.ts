@@ -113,6 +113,16 @@ export const placesQuerySchema = z.object({
   type: businessTypeSchema,
 });
 
+export const geocodeQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(2, "search needs at least two characters")
+    .max(160, "search is too long"),
+  limit: z.coerce.number().int().min(1).max(8).default(5),
+});
+
 export type HotzonesQuery = z.infer<typeof hotzonesQuerySchema>;
 export type PoisQuery = z.infer<typeof poisQuerySchema>;
 export type PlacesQuery = z.infer<typeof placesQuerySchema>;
+export type GeocodeQuery = z.infer<typeof geocodeQuerySchema>;

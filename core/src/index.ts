@@ -5,6 +5,7 @@ import { POI_PROVIDER } from './config/poi'
 import { GeoapifyError } from './services/geoapify'
 import { OverpassError, probeOverpass } from './services/overpass'
 import { cacheStats, geoapifyCreditsToday } from './services/tile-cache'
+import { geocodeRoute } from './routes/geocode'
 import { hotzonesRoute } from './routes/hotzones'
 import { placesRoute } from './routes/places'
 import { poisRoute } from './routes/pois'
@@ -62,6 +63,7 @@ app.get('/health', async (c) => {
   }
 })
 
+app.route('/api/geocode', geocodeRoute)
 app.route('/api/hotzones', hotzonesRoute)
 app.route('/api/pois', poisRoute)
 app.route('/api/places', placesRoute)

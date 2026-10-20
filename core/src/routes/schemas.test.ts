@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_CELL_SIZE_M, DEFAULT_RADIUS_M } from "../config/scoring";
 import {
+  geocodeQuerySchema,
   hotzonesQuerySchema,
   placesQuerySchema,
   poisQuerySchema,
@@ -57,6 +58,25 @@ describe("bbox validation", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("geocode validation", () => {
+  test("trims a query and applies the result limit", () => {
+    const result = geocodeQuerySchema.safeParse({ q: "  Koregaon Park  " });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.q).toBe("Koregaon Park");
+      expect(result.data.limit).toBe(5);
+    }
+  });
+
+  test("rejects short queries and oversized limits", () => {
+    expect(geocodeQuerySchema.safeParse({ q: "p" }).success).toBe(false);
+    expect(
+      geocodeQuerySchema.safeParse({ q: "Pune", limit: "9" }).success,
+    ).toBe(false);
   });
 });
 
