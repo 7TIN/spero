@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
-import { Slider } from "../../components/ui/slider";
 import { Switch } from "../../components/ui/switch";
 import { cn } from "../../lib/utils";
 import {
@@ -17,6 +16,8 @@ import {
   CATEGORY_COLORS,
   CATEGORY_LABELS,
   CELL_SIZE_STEP_M,
+  DEFAULT_CELL_SIZE_M,
+  DEFAULT_RADIUS_M,
   HOTZONE_COLOR_STOPS,
   MAX_CELL_SIZE_M,
   MAX_RADIUS_M,
@@ -26,6 +27,7 @@ import {
   RADIUS_STEP_M,
   type BasemapId,
 } from "./constants";
+import { RangeControl } from "./RangeControl";
 import type { SelectionMode } from "./types";
 
 const legendGradient = `linear-gradient(90deg, ${HOTZONE_COLOR_STOPS.map(
@@ -122,7 +124,13 @@ export function ControlPanel({
               </span>
               <Button
                 size="icon"
-                variant={mode === "selection" ? "default" : "outline"}
+                variant="ghost"
+                className={cn(
+                  "border transition-colors",
+                  mode === "selection"
+                    ? "border-zinc-300 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:border-[#393939] dark:bg-[#303030] dark:text-[#d4d4d4] dark:hover:bg-[#393939] dark:hover:text-white"
+                    : "border-transparent text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#979797] dark:hover:bg-[#303030] dark:hover:text-white",
+                )}
                 aria-pressed={mode === "selection"}
                 aria-label={
                   mode === "selection"
@@ -203,33 +211,26 @@ export function ControlPanel({
         </div>
 
         <div className="space-y-3">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Cell size</span>
-              <span className="text-muted-foreground">{cellSize} m</span>
-            </div>
-            <Slider
-              value={[cellSize]}
-              min={MIN_CELL_SIZE_M}
-              max={MAX_CELL_SIZE_M}
-              step={CELL_SIZE_STEP_M}
-              onValueChange={(value) => onCellSizeChange(value[0] ?? cellSize)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Reach radius</span>
-              <span className="text-muted-foreground">{radius} m</span>
-            </div>
-            <Slider
-              value={[radius]}
-              min={MIN_RADIUS_M}
-              max={MAX_RADIUS_M}
-              step={RADIUS_STEP_M}
-              onValueChange={(value) => onRadiusChange(value[0] ?? radius)}
-            />
-          </div>
+          <RangeControl
+            label="Cell size"
+            value={cellSize}
+            min={MIN_CELL_SIZE_M}
+            max={MAX_CELL_SIZE_M}
+            step={CELL_SIZE_STEP_M}
+            defaultValue={DEFAULT_CELL_SIZE_M}
+            unit="m"
+            onChange={onCellSizeChange}
+          />
+          <RangeControl
+            label="Reach radius"
+            value={radius}
+            min={MIN_RADIUS_M}
+            max={MAX_RADIUS_M}
+            step={RADIUS_STEP_M}
+            defaultValue={DEFAULT_RADIUS_M}
+            unit="m"
+            onChange={onRadiusChange}
+          />
         </div>
 
         <div className="space-y-3">
@@ -238,7 +239,7 @@ export function ControlPanel({
             {POI_CATEGORIES.map((category) => (
               <label
                 key={category}
-                className="flex cursor-pointer items-center gap-2 text-sm"
+                className="flex cursor-pointer items-center gap-2 text-[12px] font-medium text-zinc-700 dark:text-[#979797]"
               >
                 <Switch
                   checked={enabledCategories.includes(category)}
