@@ -1,10 +1,6 @@
 import { Layer, Source } from "react-map-gl/maplibre";
 import type { PoiFeatureCollection } from "@spero/shared";
-import {
-  CATEGORY_COLORS,
-  PLACES_ATTRIBUTION,
-  POI_MIN_ZOOM,
-} from "./constants";
+import { CATEGORY_COLORS, POI_MIN_ZOOM } from "./constants";
 
 interface PoiLayerProps {
   data?: PoiFeatureCollection;
@@ -14,12 +10,7 @@ export function PoiLayer({ data }: PoiLayerProps) {
   if (!data || data.features.length === 0) return null;
 
   return (
-    <Source
-      id="pois"
-      type="geojson"
-      data={data}
-      attribution={PLACES_ATTRIBUTION}
-    >
+    <Source id="pois" type="geojson" data={data}>
       <Layer
         id="pois-circle"
         type="circle"

@@ -157,7 +157,7 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
   }
 
   return (
-    <div className="absolute bottom-5 left-1/2 z-30 w-[min(680px,calc(100vw-2rem))] -translate-x-1/2 lg:w-[min(680px,calc(100vw-38rem))]">
+    <div className="absolute bottom-12 left-1/2 z-30 w-[min(680px,calc(100vw-2rem))] -translate-x-1/2 sm:bottom-8 lg:w-[min(680px,calc(100vw-38rem))]">
       {open && (
         <section
           aria-label="Spero Agent conversation"

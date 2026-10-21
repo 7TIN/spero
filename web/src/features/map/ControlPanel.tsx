@@ -64,7 +64,8 @@ export function ControlPanel({
   showPoiHint,
 }: ControlPanelProps) {
   return (
-    <Card className="absolute top-4 right-4 z-10 flex max-h-[calc(100svh-13rem)] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden">
+    // Leave room for the zoom controls and basemap row at the bottom-right.
+    <Card className="absolute top-4 right-4 z-10 flex max-h-[calc(100svh-15rem)] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden">
       <CardHeader className="flex-row items-center justify-between gap-3 px-4 pt-3 pb-2">
         <div className="flex min-w-0 items-center gap-2">
           <CardTitle>Spero</CardTitle>

@@ -228,6 +228,60 @@
   @apply border bg-card text-foreground shadow-sheen;
 }
 
+/*
+ * Bottom-right map chrome, from top to bottom: zoom/compass, the floating
+ * basemap row, then attribution. The fixed-height flex column reserves the
+ * middle band for the basemap row that is rendered outside MapLibre.
+ */
+.maplibregl-ctrl-bottom-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 13.125rem;
+  pointer-events: none;
+}
+
+.maplibregl-ctrl-bottom-right > .maplibregl-ctrl {
+  pointer-events: auto;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  margin: 0 10px 0 0;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  margin: 0 10px 4px 0;
+}
+
+.maplibregl-ctrl.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: color-mix(in oklab, var(--card) 90%, transparent);
+  color: var(--muted-foreground);
+  box-shadow: var(--shadow-sheen);
+  backdrop-filter: blur(8px);
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  border-radius: 12px;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--foreground);
+}
+
+.maplibregl-ctrl-attrib a:hover {
+  color: var(--primary);
+}
+
+.dark .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+
 .dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
   filter: invert(1);
 }

@@ -14,6 +14,7 @@ import {
   MAX_MAP_ZOOM,
   MIN_MAP_ZOOM,
   OSM_STYLE,
+  PLACES_ATTRIBUTION,
   POI_MIN_ZOOM,
   type BasemapId,
 } from "./constants";
@@ -50,6 +51,17 @@ interface MapViewProps {
   onMoveStart: () => void;
   onViewportChange: (viewport: { bbox: Bbox; zoom: number }) => void;
 }
+
+/**
+ * Keep the required credits visible even when no Geoapify-backed layer has
+ * loaded yet. Basemap source attribution (OpenStreetMap/CARTO) is appended by
+ * MapLibre automatically.
+ */
+const ATTRIBUTION_CONTROL = {
+  // Compact keeps the attribution collapsible, matching the previous control.
+  compact: true,
+  customAttribution: `MapLibre | ${PLACES_ATTRIBUTION}`,
+} as const;
 
 function parseScore(value: unknown): number {
   const score = typeof value === "number" ? value : Number(value);
@@ -164,6 +176,7 @@ export function MapView({
       }
       minZoom={MIN_MAP_ZOOM}
       maxZoom={MAX_MAP_ZOOM}
+      attributionControl={ATTRIBUTION_CONTROL}
       interactiveLayerIds={["hotzones-fill"]}
       onLoad={reportViewport}
       onMoveEnd={reportViewport}
