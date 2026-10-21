@@ -9,8 +9,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
-    "start": "bun run src/index.ts",
+    "dev": "bun run --hot src/server.ts",
+    "start": "bun run src/server.ts",
     "typecheck": "bun check",
     "test": "bun test"
   },

@@ -86,10 +86,4 @@ app.onError((error, c) => {
   return c.json({ error: 'Internal server error' }, 500)
 })
 
-export default {
-  // Bun closes connections after 10 s of handler inactivity by default, which
-  // cuts off a cold provider fetch before it can write a response. The browser
-  // then reports "Failed to fetch" with an empty body.
-  idleTimeout: 120,
-  fetch: app.fetch,
-}
+export default app

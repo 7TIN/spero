@@ -24,7 +24,9 @@ The app runs at `http://localhost:5173` by default.
 cp .env.example .env
 ```
 
-`VITE_API_URL` defaults to `http://localhost:3000`.
+`VITE_API_URL` defaults to `http://localhost:3000` in development and to the
+same origin in production, where the root `vercel.json` exposes the API under
+`/api`. Leave it unset on Vercel.
 
 `VITE_MAP_STYLE_URL` can point at a MapTiler or Stadia style with your key.
 `VITE_MAP_STYLE_URL_DARK` is optional. Without either, the app uses the free

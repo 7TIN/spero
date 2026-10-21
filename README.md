@@ -22,6 +22,29 @@ spero/
 bun install
 ```
 
+## Deploying on Vercel
+
+The root `vercel.json` deploys the repository as one Vercel project with two
+services:
+
+- `web` serves the Vite SPA at `/`.
+- `core` serves the Hono API at `/api/*`.
+
+In the Vercel project's **Build and Deployment** settings, set the Framework
+Preset to **Services**. Add `GEOAPIFY_API_KEY` (and optionally `GEMINI_API_KEY`)
+under **Environment Variables**. `bunVersion` is pinned to `1.4.x` because the
+API uses `bun:sqlite`.
+
+Production requests from the browser use same-origin `/api` paths, so
+`VITE_API_URL` does not need to be set on Vercel. There are no server-side
+service-to-service calls, so no service bindings are required; the browser calls
+the public `/api` route exposed by the rewrite.
+
+The tile cache uses `/tmp/spero/tiles.sqlite` on Vercel because the rest of the
+filesystem is read-only. It is disposable and local to each function instance;
+set `TILE_CACHE_PATH` if you need a different path. `/health` is not publicly
+routed in this configuration.
+
 ## Data (hosted provider + local cache)
 
 No database to run, no OSM extract to download, and nothing to self-host.
@@ -122,7 +145,9 @@ the public `tile.openstreetmap.org` server, which is suitable for development
 and light use; see the
 [tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
 before deploying.
-`VITE_API_URL` defaults to `http://localhost:3000`.
+`VITE_API_URL` defaults to `http://localhost:3000` in development and to the
+same origin in production. Leave it unset on Vercel so the SPA uses the public
+`/api` rewrite.
 
 ## API
 

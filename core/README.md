@@ -39,7 +39,8 @@ cp core/.env.example core/.env
 - `OVERPASS_USER_AGENT` — sent with every Overpass request. Defaults to
   `spero/0.1`.
 - `TILE_CACHE_PATH` — SQLite file. Defaults to `core/data/tiles.sqlite`
-  (gitignored).
+  (gitignored), or `/tmp/spero/tiles.sqlite` on Vercel where only `/tmp` is
+  writable.
 
 The map is split into 0.05° tiles. Crowd POIs and each competitor business type
 have separate tile sets, fetched once and reused for 30 days (see
@@ -77,6 +78,8 @@ business-type provider mapping.
 
 ## Entry point
 
-`src/index.ts` exports the Hono app plus a Bun serve config. `idleTimeout` is
-raised from Bun's 10 s default because a cold provider fetch can take longer,
-and Bun would otherwise reset the connection before the response is written.
+`src/index.ts` exports the Hono app and is the entrypoint used by Vercel's Hono
+framework preset. `src/server.ts` starts that app with `Bun.serve` for local
+development and production Bun hosting. Its `idleTimeout` is raised from Bun's
+10 s default because a cold provider fetch can take longer, and Bun would
+otherwise reset the connection before the response is written.

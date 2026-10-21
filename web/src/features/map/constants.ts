@@ -43,8 +43,16 @@ export const PIN_STORAGE_KEY = "spero:pinned-cells:v1";
 export const MAX_VIEW_COMPETITOR_MARKERS = 250;
 export const MAX_VIEW_COMPETITOR_CARDS = 40;
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+/**
+ * Local development talks to the Bun server on port 3000. Deployed builds use
+ * the empty string so requests go to the same origin and match the public
+ * `/api` rewrite in the root vercel.json.
+ */
+export const API_BASE_URL = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/\/+$/, "")
+  : import.meta.env.DEV
+    ? "http://localhost:3000"
+    : "";
 
 /** Falls back to a free CARTO style when no key is configured. */
 export const LIGHT_STYLE_URL =
