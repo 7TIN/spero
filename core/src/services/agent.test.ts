@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentContext } from "@spero/shared";
-import { AgentError, parseAgentPlan, planWithRules } from "./agent";
+import { AgentError, agentErrorForProviderStatus, parseAgentPlan, planWithRules } from "./agent";
 
 const context: AgentContext = {
   bbox: {
@@ -132,6 +132,23 @@ describe("planWithRules", () => {
     expect(plan.actions.categories).toEqual([]);
     expect(plan.locationQuery).toBe("");
     expect(plan.reply).toContain("open a gym");
+  });
+});
+
+describe("agentErrorForProviderStatus", () => {
+  test("shows a high-demand message with a retryable 503", () => {
+    const error = agentErrorForProviderStatus(503);
+
+    expect(error?.status).toBe(503);
+    expect(error?.message).toContain("high demand");
+  });
+
+  test("maps auth and rate-limit failures", () => {
+    expect(agentErrorForProviderStatus(401)?.message).toContain(
+      "GEMINI_API_KEY",
+    );
+    expect(agentErrorForProviderStatus(429)?.status).toBe(429);
+    expect(agentErrorForProviderStatus(500)).toBeNull();
   });
 });
 

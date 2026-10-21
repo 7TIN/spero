@@ -15,6 +15,16 @@ function bboxParam(bbox: Bbox): string {
   return [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat].join(",");
 }
 
+export class AgentApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "AgentApiError";
+    this.status = status;
+  }
+}
+
 async function readError(response: Response): Promise<Error> {
   let message = `Request failed with status ${response.status}`;
   try {
@@ -23,7 +33,7 @@ async function readError(response: Response): Promise<Error> {
   } catch {
     // Keep the generic message when the response is not JSON.
   }
-  return new Error(message);
+  return new AgentApiError(message, response.status);
 }
 
 async function request<T>(

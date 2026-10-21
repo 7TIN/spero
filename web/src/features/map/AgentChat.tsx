@@ -6,10 +6,10 @@ import {
   type AgentContext,
   type AgentResponse,
 } from "@spero/shared";
-import { ArrowUp, Loader2, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowUp, Loader2, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
-import { fetchAgent } from "./api";
+import { AgentApiError, fetchAgent } from "./api";
 import { BASEMAPS, CATEGORY_LABELS } from "./constants";
 
 interface AgentChatProps {
@@ -23,6 +23,8 @@ interface ChatMessage {
   text: string;
   response?: AgentResponse;
   error?: boolean;
+  retryQuery?: string;
+  retryable?: boolean;
 }
 
 function appliedChips(response: AgentResponse): string[] {
@@ -88,17 +90,14 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
     setMessages((current) => [...current, message].slice(-40));
   }
 
-  function submit() {
-    const query = input.trim();
-    if (query.length < 2 || mutation.isPending) return;
+  function runQuery(query: string, replaceMessageId?: number) {
+    if (mutation.isPending) return;
 
-    setInput("");
-    setOpen(true);
-    append({
-      id: (nextId.current += 1),
-      role: "user",
-      text: query,
-    });
+    if (replaceMessageId !== undefined) {
+      setMessages((current) =>
+        current.filter((message) => message.id !== replaceMessageId),
+      );
+    }
 
     mutation.mutate(query, {
       onSuccess: (response) => {
@@ -111,6 +110,11 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
         onApply(response);
       },
       onError: (error) => {
+        const status =
+          error instanceof AgentApiError ? error.status : null;
+        const retryable =
+          status === null || status === 429 || status >= 500;
+
         append({
           id: (nextId.current += 1),
           role: "assistant",
@@ -119,9 +123,31 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
               ? error.message
               : "The agent could not answer. Try again.",
           error: true,
+          retryQuery: query,
+          retryable,
         });
       },
     });
+  }
+
+  function submit() {
+    const query = input.trim();
+    if (query.length < 2 || mutation.isPending) return;
+
+    setInput("");
+    setOpen(true);
+    append({
+      id: (nextId.current += 1),
+      role: "user",
+      text: query,
+    });
+
+    runQuery(query);
+  }
+
+  function retry(message: ChatMessage) {
+    if (!message.retryQuery) return;
+    runQuery(message.retryQuery, message.id);
   }
 
   function clear() {
@@ -224,6 +250,23 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
                         ))}
                       </div>
                     )}
+                    {message.error &&
+                      message.retryable &&
+                      message.retryQuery && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-2 h-7 gap-1.5 px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => retry(message)}
+                          disabled={mutation.isPending}
+                          aria-label="Retry agent request"
+                          title="Retry"
+                        >
+                          <RotateCcw className="size-3.5" />
+                          Retry
+                        </Button>
+                      )}
                   </div>
                 </div>
               );

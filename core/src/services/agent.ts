@@ -43,6 +43,31 @@ export class AgentError extends Error {
   }
 }
 
+/** Map a Gemini HTTP failure to the friendly message shown in the chat. */
+export function agentErrorForProviderStatus(
+  status: number,
+): AgentError | null {
+  if (status === 401 || status === 403) {
+    return new AgentError(
+      "The agent could not authenticate. Check GEMINI_API_KEY.",
+      502,
+    );
+  }
+  if (status === 429) {
+    return new AgentError(
+      "The AI model is busy right now. Please try again in a moment.",
+      429,
+    );
+  }
+  if (status === 503) {
+    return new AgentError(
+      "The AI model is experiencing high demand right now. Please try again in a moment.",
+      503,
+    );
+  }
+  return null;
+}
+
 const BUSINESS_TYPE_IDS = BUSINESS_TYPE_OPTIONS.map(
   (option) => option.id,
 ) as [BusinessTypeId, ...BusinessTypeId[]];
@@ -682,18 +707,9 @@ async function generateWithGemini(
       }`,
     );
 
-    if (response.status === 401 || response.status === 403) {
-      throw new AgentError(
-        "The agent could not authenticate. Check GEMINI_API_KEY.",
-        502,
-      );
-    }
-    if (response.status === 429) {
-      throw new AgentError(
-        "The agent is busy right now. Try again in a moment.",
-        429,
-      );
-    }
+    const mappedError = agentErrorForProviderStatus(response.status);
+    if (mappedError) throw mappedError;
+
     throw new AgentError("The agent could not build a plan. Try again.", 502);
   }
 
