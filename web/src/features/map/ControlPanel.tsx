@@ -106,7 +106,7 @@ export function ControlPanel({
               size="icon"
               variant="ghost"
               className={cn(
-                "border transition-colors",
+                "border",
                 mode === "selection"
                   ? "border-zinc-300 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:border-[#393939] dark:bg-[#303030] dark:text-[#d4d4d4] dark:hover:bg-[#393939] dark:hover:text-white"
                   : "border-transparent text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#979797] dark:hover:bg-[#303030] dark:hover:text-white",

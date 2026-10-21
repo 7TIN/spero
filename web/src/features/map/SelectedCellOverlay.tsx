@@ -14,7 +14,7 @@ interface SelectedCellOverlayProps {
 }
 
 const iconButtonClass =
-  "flex size-7 items-center justify-center rounded-md border bg-popover text-popover-foreground shadow-md transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50";
+  "flex size-7 items-center justify-center rounded-md border bg-popover text-popover-foreground shadow-md hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50";
 
 function cellPolygon(cell: SelectedCell): HotzoneFeatureCollection {
   const { minLng, minLat, maxLng, maxLat } = cell.bounds;

@@ -148,7 +148,7 @@ export function MapSearch({ onSelect }: MapSearchProps) {
               type="button"
               onClick={clear}
               aria-label="Clear search"
-              className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <X className="size-3.5" />
             </button>
@@ -200,7 +200,7 @@ export function MapSearch({ onSelect }: MapSearchProps) {
                       onMouseEnter={() => setActiveIndex(index)}
                       onClick={() => choose(result)}
                       className={cn(
-                        "flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
+                        "flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
                         activeIndex === index && "bg-accent",
                       )}
                     >

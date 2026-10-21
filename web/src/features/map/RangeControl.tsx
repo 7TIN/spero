@@ -94,7 +94,7 @@ export function RangeControl({
           aria-valuemax={max}
           aria-valuenow={value}
           aria-valuetext={displayValue}
-          className="group/track relative h-6 min-w-0 flex-1 cursor-pointer touch-none select-none rounded border border-zinc-200 bg-zinc-200/60 outline-none transition-colors hover:border-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-400/60 dark:border-[#282828] dark:bg-[#282828] dark:hover:border-[#393939] dark:focus-visible:ring-white/20"
+          className="group/track relative h-6 min-w-0 flex-1 cursor-pointer touch-none select-none rounded border border-zinc-200 bg-zinc-200/60 outline-none hover:border-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-400/60 dark:border-[#282828] dark:bg-[#282828] dark:hover:border-[#393939] dark:focus-visible:ring-white/20"
           onPointerDown={(event) => {
             event.currentTarget.focus();
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -144,7 +144,7 @@ export function RangeControl({
                 left: `${ratio * 100}%`,
                 transform: "translate(-50%, -50%) translateX(-6px)",
               }}
-              className="absolute top-1/2 flex flex-col items-center gap-[2px] text-zinc-500 transition-colors group-hover/track:text-zinc-700 dark:text-white/50 dark:group-hover/track:text-white"
+              className="absolute top-1/2 flex flex-col items-center gap-[2px] text-zinc-500 group-hover/track:text-zinc-700 dark:text-white/50 dark:group-hover/track:text-white"
             >
               <span className="size-[3px] rounded-full bg-current" />
               <span className="size-[3px] rounded-full bg-current" />
@@ -184,7 +184,7 @@ export function RangeControl({
           title={`Reset ${label.toLowerCase()}`}
           disabled={value === defaultValue}
           onClick={() => onChange(defaultValue)}
-          className="flex size-5 shrink-0 items-center justify-center rounded-[3px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2792ff] disabled:cursor-default disabled:opacity-40 dark:text-[#979797] dark:hover:bg-[#303030] dark:hover:text-[#bcbcbc]"
+          className="flex size-5 shrink-0 items-center justify-center rounded-[3px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2792ff] disabled:cursor-default disabled:opacity-40 dark:text-[#979797] dark:hover:bg-[#303030] dark:hover:text-[#bcbcbc]"
         >
           <RotateCcw className="size-3" />
         </button>

@@ -535,7 +535,7 @@ export function CellDetailPanel({
                 <div
                   key={pin.id}
                   className={cn(
-                    "flex items-center gap-0.5 rounded-md border px-1 py-0.5 transition-colors",
+                    "flex items-center gap-0.5 rounded-md border px-1 py-0.5",
                     active
                       ? "border-amber-500/40 bg-amber-500/10"
                       : "border-transparent hover:bg-accent",
@@ -568,7 +568,7 @@ export function CellDetailPanel({
                     onClick={() => onRemovePin(pin.id)}
                     aria-label={`Remove pinned cell ${index + 1}`}
                     title="Remove pin"
-                    className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     <X className="size-3" />
                   </button>
