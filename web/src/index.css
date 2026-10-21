@@ -286,6 +286,27 @@
   filter: invert(1);
 }
 
+/*
+ * On phones the collapsed bottom drawer reserves the bottom strip. Lift the
+ * map chrome above it so attribution and basemap stay usable, with the
+ * basemap trigger perched between attribution and the zoom controls.
+ */
+@media (max-width: 1023px) {
+  .maplibregl-ctrl-bottom-right {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom));
+    height: 11.5rem;
+  }
+
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+    margin: 0 8px 0 0;
+  }
+
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+    max-width: calc(100vw - 4rem);
+    margin: 0 8px 2px 0;
+  }
+}
+
 .thin-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;

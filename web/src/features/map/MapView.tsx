@@ -130,6 +130,18 @@ export function MapView({
     });
   }, [onViewportChange]);
 
+  const handleLoad = useCallback(() => {
+    reportViewport();
+
+    // MapLibre opens compact attribution once on creation. Keep the map info
+    // collapsed by default so it does not cover the basemap picker on phones.
+    const attribution = mapRef.current
+      ?.getContainer()
+      .querySelector(".maplibregl-ctrl-attrib.maplibregl-compact");
+    attribution?.classList.remove("maplibregl-compact-show");
+    attribution?.removeAttribute("open");
+  }, [reportViewport]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !flyToTarget) return;
@@ -178,7 +190,7 @@ export function MapView({
       maxZoom={MAX_MAP_ZOOM}
       attributionControl={ATTRIBUTION_CONTROL}
       interactiveLayerIds={["hotzones-fill"]}
-      onLoad={reportViewport}
+      onLoad={handleLoad}
       onMoveEnd={reportViewport}
       onMoveStart={onMoveStart}
       onZoom={(event) => setZoom(event.viewState.zoom)}

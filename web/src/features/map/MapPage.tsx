@@ -10,9 +10,12 @@ import {
   type PoiCategory,
 } from "@spero/shared";
 import { useDebouncedValue } from "../../lib/use-debounced-value";
+import { useMediaQuery } from "../../lib/use-media-query";
 import { AgentChat } from "./AgentChat";
 import { BasemapControl } from "./BasemapControl";
 import { ControlPanel } from "./ControlPanel";
+import { MobileBottomPanel, type MobileMapTab } from "./MobileBottomPanel";
+import { MobileControlMenu } from "./MobileControlMenu";
 import {
   DEFAULT_CELL_SIZE_M,
   DEFAULT_RADIUS_M,
@@ -45,6 +48,9 @@ interface MapPageProps {
 }
 
 export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const [mobilePanel, setMobilePanel] = useState<MobileMapTab | null>(null);
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
   const [cellSize, setCellSize] = useState(DEFAULT_CELL_SIZE_M);
   const [radius, setRadius] = useState(DEFAULT_RADIUS_M);
   const [enabledCategories, setEnabledCategories] = useState<PoiCategory[]>([
@@ -187,10 +193,17 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     [],
   );
 
-  const handleSelect = useCallback((cell: SelectedCell) => {
-    setSelectedCell(cell);
-    setFocusedPlaceId(null);
-  }, []);
+  const handleSelect = useCallback(
+    (cell: SelectedCell) => {
+      setSelectedCell(cell);
+      setFocusedPlaceId(null);
+      if (!isDesktop) {
+        setMobileControlsOpen(false);
+        setMobilePanel("results");
+      }
+    },
+    [isDesktop],
+  );
 
   // The left panel stays visible and falls back to its empty state. In normal
   // mode a moving map drops the selection; selection mode keeps the outline so
@@ -225,20 +238,25 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     });
   }, [selectedCell]);
 
-  const handleSelectPin = useCallback((pin: PinnedCell) => {
-    setMode("selection");
-    setSelectedCell(pin.cell);
-    setFocusedPlaceId(null);
+  const handleSelectPin = useCallback(
+    (pin: PinnedCell) => {
+      setMode("selection");
+      setSelectedCell(pin.cell);
+      setFocusedPlaceId(null);
 
-    flyToId.current += 1;
-    setFlyToTarget({
-      id: flyToId.current,
-      latitude: pin.cell.centerLat,
-      longitude: pin.cell.centerLng,
-      bbox: pin.cell.bounds,
-      label: "Pinned cell",
-    });
-  }, []);
+      if (!isDesktop) setMobilePanel("results");
+
+      flyToId.current += 1;
+      setFlyToTarget({
+        id: flyToId.current,
+        latitude: pin.cell.centerLat,
+        longitude: pin.cell.centerLng,
+        bbox: pin.cell.bounds,
+        label: "Pinned cell",
+      });
+    },
+    [isDesktop],
+  );
 
   const handleRemovePin = useCallback((id: string) => {
     setPinnedCells((current) => current.filter((pin) => pin.id !== id));
@@ -283,9 +301,13 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     setFocusedPlaceId(null);
   }, []);
 
-  const handleCompetitorSelect = useCallback((placeId: string) => {
-    setFocusedPlaceId(placeId);
-  }, []);
+  const handleCompetitorSelect = useCallback(
+    (placeId: string) => {
+      setFocusedPlaceId(placeId);
+      if (!isDesktop) setMobilePanel("results");
+    },
+    [isDesktop],
+  );
 
   const selectedPinId = selectedCell ? cellKey(selectedCell) : null;
   const selectedPinned =
@@ -345,6 +367,11 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
     [handleClearSelection, handleModeChange, handleSearchSelect],
   );
 
+  const handleAgentApplied = useCallback(() => {
+    setMobileControlsOpen(false);
+    setMobilePanel("results");
+  }, []);
+
   const agentContext = useMemo<AgentContext>(
     () => ({
       bbox: viewport.bbox,
@@ -386,6 +413,54 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
           ? competitors.error.message
           : null;
 
+  const cellPanel = (embedded: boolean) => (
+    <CellDetailPanel
+      cell={selectedCell}
+      competitorArea={competitorArea}
+      viewCenter={viewCenter}
+      radius={radius}
+      businessType={businessType}
+      customBusinessLabel={customBusinessLabel}
+      onBusinessTypeChange={handleBusinessTypeChange}
+      onCustomBusinessChange={handleCustomBusinessChange}
+      enabledCategories={enabledCategories}
+      competitors={competitors.data}
+      competitorsFetching={competitors.isFetching}
+      competitorsError={
+        competitors.error instanceof Error ? competitors.error : null
+      }
+      focusedPlaceId={focusedPlaceId}
+      pinnedCells={pinnedCells}
+      selectedPinId={selectedPinId}
+      pinned={selectedPinned}
+      pinLimitReached={pinnedCells.length >= MAX_PINNED_CELLS}
+      onClearCell={handleClearSelection}
+      onTogglePin={handleTogglePin}
+      onSelectPin={handleSelectPin}
+      onRemovePin={handleRemovePin}
+      embedded={embedded}
+    />
+  );
+
+  const controlPanel = (
+    <ControlPanel
+      isDark={isDark}
+      onToggleTheme={onToggleTheme}
+      mode={mode}
+      onModeChange={handleModeChange}
+      cellSize={cellSize}
+      radius={radius}
+      onCellSizeChange={handleCellSizeChange}
+      onRadiusChange={handleRadiusChange}
+      enabledCategories={enabledCategories}
+      onToggleCategory={toggleCategory}
+      isFetching={hotzones.isFetching || pois.isFetching}
+      error={error}
+      hotzoneCount={hotzones.data?.features.length}
+      showPoiHint={viewport.zoom < POI_MIN_ZOOM}
+    />
+  );
+
   return (
     <div className="relative h-svh w-full overflow-hidden bg-background">
       <MapView
@@ -410,52 +485,53 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         onViewportChange={handleViewportChange}
       />
       <MapSearch onSelect={handleSearchSelect} />
-      <AgentChat context={agentContext} onApply={handleAgentApply} />
-      <CellDetailPanel
-        cell={selectedCell}
-        competitorArea={competitorArea}
-        viewCenter={viewCenter}
-        radius={radius}
-        businessType={businessType}
-        customBusinessLabel={customBusinessLabel}
-        onBusinessTypeChange={handleBusinessTypeChange}
-        onCustomBusinessChange={handleCustomBusinessChange}
-        enabledCategories={enabledCategories}
-        competitors={competitors.data}
-        competitorsFetching={competitors.isFetching}
-        competitorsError={
-          competitors.error instanceof Error ? competitors.error : null
-        }
-        focusedPlaceId={focusedPlaceId}
-        pinnedCells={pinnedCells}
-        selectedPinId={selectedPinId}
-        pinned={selectedPinned}
-        pinLimitReached={pinnedCells.length >= MAX_PINNED_CELLS}
-        onClearCell={handleClearSelection}
-        onTogglePin={handleTogglePin}
-        onSelectPin={handleSelectPin}
-        onRemovePin={handleRemovePin}
-      />
-      <BasemapControl
-        basemap={basemap}
-        onBasemapChange={setBasemapChoice}
-      />
-      <ControlPanel
-        isDark={isDark}
-        onToggleTheme={onToggleTheme}
-        mode={mode}
-        onModeChange={handleModeChange}
-        cellSize={cellSize}
-        radius={radius}
-        onCellSizeChange={handleCellSizeChange}
-        onRadiusChange={handleRadiusChange}
-        enabledCategories={enabledCategories}
-        onToggleCategory={toggleCategory}
-        isFetching={hotzones.isFetching || pois.isFetching}
-        error={error}
-        hotzoneCount={hotzones.data?.features.length}
-        showPoiHint={viewport.zoom < POI_MIN_ZOOM}
-      />
+
+      {isDesktop ? (
+        <>
+          <AgentChat context={agentContext} onApply={handleAgentApply} />
+          {cellPanel(false)}
+          <BasemapControl
+            basemap={basemap}
+            onBasemapChange={setBasemapChoice}
+          />
+          <div className="absolute top-4 right-4 z-10">{controlPanel}</div>
+        </>
+      ) : (
+        <>
+          <MobileControlMenu
+            open={mobileControlsOpen}
+            onOpenChange={(open) => {
+              setMobileControlsOpen(open);
+              if (open) setMobilePanel(null);
+            }}
+          >
+            {controlPanel}
+          </MobileControlMenu>
+
+          <BasemapControl
+            basemap={basemap}
+            onBasemapChange={setBasemapChoice}
+            variant="mobile"
+          />
+
+          <MobileBottomPanel
+            activeTab={mobilePanel}
+            onTabChange={(tab) => {
+              setMobilePanel(tab);
+              if (tab) setMobileControlsOpen(false);
+            }}
+            results={cellPanel(true)}
+            ai={
+              <AgentChat
+                context={agentContext}
+                onApply={handleAgentApply}
+                onApplied={handleAgentApplied}
+                variant="embedded"
+              />
+            }
+          />
+        </>
+      )}
     </div>
   );
 }

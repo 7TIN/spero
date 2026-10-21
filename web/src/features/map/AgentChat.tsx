@@ -15,6 +15,9 @@ import { BASEMAPS, CATEGORY_LABELS } from "./constants";
 interface AgentChatProps {
   context: AgentContext;
   onApply: (response: AgentResponse) => void;
+  /** Called after a successful response has been applied, used to switch tabs. */
+  onApplied?: () => void;
+  variant?: "floating" | "embedded";
 }
 
 interface ChatMessage {
@@ -68,7 +71,13 @@ function appliedChips(response: AgentResponse): string[] {
   return chips;
 }
 
-export function AgentChat({ context, onApply }: AgentChatProps) {
+export function AgentChat({
+  context,
+  onApply,
+  onApplied,
+  variant = "floating",
+}: AgentChatProps) {
+  const embedded = variant === "embedded";
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -82,9 +91,9 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
   });
 
   useEffect(() => {
-    if (!open) return;
+    if (!embedded && !open) return;
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [open, messages, mutation.isPending]);
+  }, [embedded, open, messages, mutation.isPending]);
 
   function append(message: ChatMessage) {
     setMessages((current) => [...current, message].slice(-40));
@@ -108,6 +117,7 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
           response,
         });
         onApply(response);
+        onApplied?.();
       },
       onError: (error) => {
         const status =
@@ -157,13 +167,29 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
   }
 
   return (
-    <div className="absolute bottom-12 left-1/2 z-30 w-[min(680px,calc(100vw-2rem))] -translate-x-1/2 sm:bottom-8 lg:w-[min(680px,calc(100vw-38rem))]">
-      {open && (
+    <div
+      className={cn(
+        embedded
+          ? "flex h-full min-h-0 flex-col"
+          : "absolute bottom-12 left-1/2 z-30 w-[min(680px,calc(100vw-2rem))] -translate-x-1/2 sm:bottom-8 lg:w-[min(680px,calc(100vw-38rem))]",
+      )}
+    >
+      {(embedded || open) && (
         <section
           aria-label="Spero Agent conversation"
-          className="mb-2 flex h-[min(60svh,560px)] flex-col overflow-hidden rounded-2xl border bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-popover/90"
+          className={cn(
+            "flex flex-col overflow-hidden",
+            embedded
+              ? "min-h-0 flex-1"
+              : "mb-2 h-[min(60svh,560px)] rounded-2xl border bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-popover/90",
+          )}
         >
-          <header className="flex items-center justify-between gap-3 border-b px-4 py-3">
+          <header
+            className={cn(
+              "flex items-center justify-between gap-3 border-b px-4 py-3",
+              embedded && "px-3 py-2.5",
+            )}
+          >
             <div className="flex min-w-0 items-center gap-2.5">
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-zinc-300/80 bg-zinc-200 text-zinc-700 shadow-sheen dark:border-zinc-600/80 dark:bg-zinc-700 dark:text-zinc-200">
                 <Sparkles className="size-4" />
@@ -186,20 +212,25 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
               >
                 <Trash2 />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setOpen(false)}
-                aria-label="Close agent conversation"
-                title="Close"
-              >
-                <X />
-              </Button>
+              {!embedded && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close agent conversation"
+                  title="Close"
+                >
+                  <X />
+                </Button>
+              )}
             </div>
           </header>
 
           <div
-            className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
+            className={cn(
+              "thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto",
+              embedded ? "px-3 py-3" : "px-4 py-4",
+            )}
             aria-live="polite"
           >
             {messages.map((message) => {
@@ -293,7 +324,10 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
           event.preventDefault();
           submit();
         }}
-        className="rounded-2xl border bg-card/95 p-1.5 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-card/90"
+        className={cn(
+          "rounded-2xl border bg-card/95 p-1.5 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-card/90",
+          embedded && "mt-2 shrink-0 rounded-xl shadow-none",
+        )}
       >
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
@@ -331,10 +365,14 @@ export function AgentChat({ context, onApply }: AgentChatProps) {
             )}
           </Button>
         </div>
-        <div className="flex items-center justify-between px-2 pt-0.5 pb-0.5 text-[10px] text-muted-foreground">
-          <span>Agent can move the map, compare a business, and change controls</span>
-          <span className="hidden sm:inline">Enter to send</span>
-        </div>
+        {!embedded && (
+          <div className="flex items-center justify-between px-2 pt-0.5 pb-0.5 text-[10px] text-muted-foreground">
+            <span>
+              Agent can move the map, compare a business, and change controls
+            </span>
+            <span className="hidden sm:inline">Enter to send</span>
+          </div>
+        )}
       </form>
     </div>
   );

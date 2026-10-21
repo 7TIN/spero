@@ -85,7 +85,7 @@ export function MapSearch({ onSelect }: MapSearchProps) {
   return (
     <div
       ref={containerRef}
-      className="absolute top-4 left-1/2 z-20 w-[min(360px,calc(100vw-2rem))] -translate-x-1/2"
+      className="absolute top-3 right-16 left-3 z-50 w-auto lg:top-4 lg:right-auto lg:left-1/2 lg:z-20 lg:w-[min(360px,calc(100vw-2rem))] lg:-translate-x-1/2"
     >
       <form
         role="search"

@@ -66,6 +66,8 @@ interface CellDetailPanelProps {
   onTogglePin: () => void;
   onSelectPin: (pin: PinnedCell) => void;
   onRemovePin: (id: string) => void;
+  /** Render inside the mobile bottom sheet instead of the desktop left card. */
+  embedded?: boolean;
 }
 
 interface CellPlace extends PlaceCardData {
@@ -240,6 +242,7 @@ export function CellDetailPanel({
   onTogglePin,
   onSelectPin,
   onRemovePin,
+  embedded = false,
 }: CellDetailPanelProps) {
   const { data, isFetching, error } = useCellPois(
     cell,
@@ -413,7 +416,14 @@ export function CellDetailPanel({
   };
 
   return (
-    <Card className="absolute top-5 bottom-5 left-5 z-10 flex w-[250px] flex-col overflow-hidden">
+    <Card
+      className={cn(
+        "flex min-h-0 w-full flex-col overflow-hidden",
+        embedded
+          ? "h-full rounded-none border-0 bg-transparent shadow-none"
+          : "absolute top-5 bottom-5 left-5 z-10 w-[250px]",
+      )}
+    >
       <CardHeader className="flex-row items-start justify-between gap-3 border-b pb-3">
         <div className="space-y-1">
           <CardTitle>
