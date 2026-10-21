@@ -11,6 +11,7 @@ import {
 } from "@spero/shared";
 import { useDebouncedValue } from "../../lib/use-debounced-value";
 import { AgentChat } from "./AgentChat";
+import { BasemapControl } from "./BasemapControl";
 import { ControlPanel } from "./ControlPanel";
 import {
   DEFAULT_CELL_SIZE_M,
@@ -435,11 +436,13 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         onSelectPin={handleSelectPin}
         onRemovePin={handleRemovePin}
       />
+      <BasemapControl
+        basemap={basemap}
+        onBasemapChange={setBasemapChoice}
+      />
       <ControlPanel
         isDark={isDark}
         onToggleTheme={onToggleTheme}
-        basemap={basemap}
-        onBasemapChange={setBasemapChoice}
         mode={mode}
         onModeChange={handleModeChange}
         cellSize={cellSize}
