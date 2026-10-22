@@ -22,6 +22,20 @@ export function bboxAround(
   };
 }
 
+/** Longest side of a bbox, in metres. Mirrors core/src/lib/geo.ts. */
+export function bboxSpanMeters(bbox: Bbox): number {
+  const midLat = (bbox.minLat + bbox.maxLat) / 2;
+  const width = haversineMeters(bbox.minLng, midLat, bbox.maxLng, midLat);
+  const height = haversineMeters(
+    bbox.minLng,
+    bbox.minLat,
+    bbox.minLng,
+    bbox.maxLat,
+  );
+
+  return Math.max(width, height);
+}
+
 /** Great-circle distance in metres. Mirrors core/src/lib/geo.ts. */
 export function haversineMeters(
   fromLng: number,

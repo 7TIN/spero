@@ -12,7 +12,8 @@ import type {
   PlaceFeatureCollection,
 } from "@spero/shared";
 import { fetchPlaces } from "./api";
-import { bboxAround } from "./geo";
+import { MAX_VIEW_BBOX_SPAN_M } from "./constants";
+import { bboxAround, bboxSpanMeters } from "./geo";
 import {
   MAX_VIEW_PLACE_TILES,
   placeTileQueryBounds,
@@ -31,8 +32,8 @@ const AREA_STALE_TIME_MS = 30_000;
 const VIEW_TILE_STALE_TIME_MS = 30 * 60_000;
 const VIEW_TILE_GC_TIME_MS = 60 * 60_000;
 
-const TOO_MANY_TILES_ERROR = new Error(
-  "This area is too large to load. Zoom in to see competitors.",
+const VIEW_BBOX_TOO_LARGE_ERROR = new Error(
+  `bbox is too large, keep the area within about ${MAX_VIEW_BBOX_SPAN_M / 1000} km`,
 );
 
 export interface ViewPlacesResult {
@@ -43,18 +44,22 @@ export interface ViewPlacesResult {
 
 interface TilePlan {
   tiles: PlaceTile[];
-  tooMany: boolean;
+  tooLarge: boolean;
 }
 
 function planTiles(bbox: Bbox | null): TilePlan {
-  if (!bbox) return { tiles: [], tooMany: false };
+  if (!bbox) return { tiles: [], tooLarge: false };
+
+  if (bboxSpanMeters(bbox) > MAX_VIEW_BBOX_SPAN_M) {
+    return { tiles: [], tooLarge: true };
+  }
 
   const tiles = placeTilesForBbox(bbox);
   if (tiles.length > MAX_VIEW_PLACE_TILES) {
-    return { tiles: [], tooMany: true };
+    return { tiles: [], tooLarge: true };
   }
 
-  return { tiles, tooMany: false };
+  return { tiles, tooLarge: false };
 }
 
 function insideBbox(lng: number, lat: number, bbox: Bbox): boolean {
@@ -189,11 +194,11 @@ export function usePlacesInBbox(
 
   const merged = useQueries({ queries, combine });
 
-  if (selection && tilePlan.tooMany) {
+  if (selection && tilePlan.tooLarge) {
     return {
       data: undefined,
       isFetching: false,
-      error: TOO_MANY_TILES_ERROR,
+      error: VIEW_BBOX_TOO_LARGE_ERROR,
     };
   }
 

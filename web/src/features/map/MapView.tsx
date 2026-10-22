@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import Map, { NavigationControl, type MapRef } from "react-map-gl/maplibre";
 import type {
   Bbox,
@@ -15,7 +15,6 @@ import {
   MIN_MAP_ZOOM,
   OSM_STYLE,
   PLACES_ATTRIBUTION,
-  POI_MIN_ZOOM,
   type BasemapId,
 } from "./constants";
 import { CompetitorLayer } from "./CompetitorLayer";
@@ -112,7 +111,6 @@ export function MapView({
   onViewportChange,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
-  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
 
   const reportViewport = useCallback(() => {
     const map = mapRef.current;
@@ -193,7 +191,6 @@ export function MapView({
       onLoad={handleLoad}
       onMoveEnd={reportViewport}
       onMoveStart={onMoveStart}
-      onZoom={(event) => setZoom(event.viewState.zoom)}
       onClick={(event) => {
         // The outline's pin and close buttons sit inside MapLibre's canvas
         // container, so their clicks bubble to the map. Ignore marker clicks,
@@ -236,13 +233,11 @@ export function MapView({
         onSelect={onSelectPin}
       />
       <PoiLayer data={pois} />
-      {zoom >= POI_MIN_ZOOM && (
-        <CompetitorLayer
-          data={competitors}
-          focusedPlaceId={focusedPlaceId}
-          onSelect={onCompetitorSelect}
-        />
-      )}
+      <CompetitorLayer
+        data={competitors}
+        focusedPlaceId={focusedPlaceId}
+        onSelect={onCompetitorSelect}
+      />
       {showOutline && outlineCell && (
         <SelectedCellOverlay
           cell={outlineCell}

@@ -18,8 +18,19 @@ export const MAX_MAP_ZOOM = 18;
 /** Fetch hot zones after the map has been still for this long. */
 export const MOVE_DEBOUNCE_MS = 400;
 
-/** POI circles are only shown from this zoom level up. */
+/**
+ * POI circles are only shown from this zoom level up. Competitor markers are
+ * different: they follow the scoring bbox limit below so the map matches the
+ * competitor list in the left panel.
+ */
 export const POI_MIN_ZOOM = 14;
+
+/**
+ * Keep in sync with MAX_BBOX_SPAN_M in core/src/config/scoring.ts. Hot zones
+ * reject a viewport larger than this, so the standalone competitor layer uses
+ * the same limit instead of showing results for an area the scorer cannot use.
+ */
+export const MAX_VIEW_BBOX_SPAN_M = 15_000;
 
 export const DEFAULT_CELL_SIZE_M = 250;
 export const MIN_CELL_SIZE_M = 50;
