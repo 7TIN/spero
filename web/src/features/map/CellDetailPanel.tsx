@@ -146,20 +146,30 @@ function CompetitorSection({
         )}
       </div>
 
-      {error ? (
-        <p className="text-xs text-destructive">{error.message}</p>
-      ) : fetching ? (
+      {error && <p className="text-xs text-destructive">{error.message}</p>}
+
+      {!error && fetching && places.length === 0 && (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" />
           Finding {isCustom ? "matches" : option.plural}…
         </p>
-      ) : places.length === 0 ? (
+      )}
+
+      {!error && !fetching && places.length === 0 && (
         <p className="text-xs text-muted-foreground">
           No {isCustom ? "matching places" : "competitors"} found{" "}
           {scope === "area" ? `within ${radius} m` : "in this view"}.
         </p>
-      ) : (
+      )}
+
+      {places.length > 0 && (
         <>
+          {fetching && (
+            <p className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" />
+              Updating…
+            </p>
+          )}
           <div className="space-y-2">
             {visiblePlaces.map((place) => (
               <PlaceCard
