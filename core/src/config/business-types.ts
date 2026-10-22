@@ -3,6 +3,7 @@ import {
   type BusinessPlaceType,
   type BusinessTypeId,
 } from "@spero/shared";
+import { customMatchTerms } from "../lib/place-match";
 
 export interface BusinessTypeSource {
   id: BusinessPlaceType;
@@ -12,8 +13,12 @@ export interface BusinessTypeSource {
   geoapifyCategories: string[];
   /** Raw OSM tags used by the Overpass fallback. */
   osmTags: Array<{ key: string; value: string }>;
-  /** Free-text fallback used when no category mapping matches a custom type. */
-  nameQuery?: string;
+  /**
+   * Distinctive words from a custom label. When set, providers fetch the broad
+   * category fallback and keep places whose name or categories match every
+   * word, instead of requiring an exact name filter.
+   */
+  matchTerms?: string[];
 }
 
 type SourceMapping = Pick<BusinessTypeSource, "geoapifyCategories" | "osmTags">;
@@ -95,8 +100,8 @@ interface CustomBusinessMapping {
 
 /**
  * Common businesses that are not in the preset list. Custom labels still work
- * without a mapping through the provider name search, but mapping the common
- * ones produces a complete category result rather than only name matches.
+ * without a mapping by matching their distinctive words against broad provider
+ * categories and names, but mapping the common ones is cheaper and more precise.
  */
 const CUSTOM_BUSINESS_MAPPINGS: CustomBusinessMapping[] = [
   {
@@ -291,8 +296,9 @@ const CUSTOM_BUSINESS_MAPPINGS: CustomBusinessMapping[] = [
 ];
 
 /**
- * A broad net for labels with no category mapping. The provider's name filter
- * narrows these down to places whose names contain the user's label.
+ * A broad net for labels with no category mapping. Providers fetch these
+ * categories without a name filter, then keep places whose name or categories
+ * match the custom label's distinctive words.
  */
 const CUSTOM_FALLBACK_GEOAPIFY_CATEGORIES = [
   "commercial",
@@ -305,6 +311,7 @@ const CUSTOM_FALLBACK_GEOAPIFY_CATEGORIES = [
   "tourism",
   "leisure",
   "activity",
+  "sport",
   "pet",
   "accommodation",
 ];
@@ -350,7 +357,7 @@ export function customBusinessSource(label: string): BusinessTypeSource {
     geoapifyCategories:
       mapping?.geoapifyCategories ?? CUSTOM_FALLBACK_GEOAPIFY_CATEGORIES,
     osmTags: mapping?.osmTags ?? [],
-    ...(mapping ? {} : { nameQuery: trimmed }),
+    ...(mapping ? {} : { matchTerms: customMatchTerms(trimmed) }),
   };
 }
 

@@ -7,6 +7,7 @@ import {
   GEOAPIFY_REQUEST_TIMEOUT_MS,
   GEOAPIFY_URL,
 } from "../config/poi";
+import { matchesPlaceTerms } from "../lib/place-match";
 import type { PlaceDetails, SourcePlace, SourcePoi } from "./poi-types";
 import { recordGeoapifyCredits } from "./tile-cache";
 
@@ -146,14 +147,17 @@ function rawTag(
 }
 
 function pickRawCategory(categories: string[] | undefined): string | null {
-  if (!categories) return null;
+  return placeCategories(categories).at(-1) ?? null;
+}
 
-  const candidates = categories.filter((category) => {
+/** Real place categories, without conditions such as `wheelchair.yes`. */
+function placeCategories(categories: string[] | undefined): string[] {
+  if (!categories) return [];
+
+  return categories.filter((category) => {
     const topLevel = category.split(".")[0] ?? "";
     return !CONDITION_TOP_LEVELS.has(topLevel);
   });
-
-  return candidates.at(-1) ?? null;
 }
 
 function pickAddress(properties: GeoapifyProperties): string | null {
@@ -222,7 +226,7 @@ function buildUrl(
   bbox: Bbox,
   categories: string,
   offset: number,
-  name?: string,
+  biased: boolean,
 ): string {
   const params = new URLSearchParams({
     categories,
@@ -231,7 +235,12 @@ function buildUrl(
     offset: String(offset),
     apiKey: GEOAPIFY_API_KEY,
   });
-  if (name) params.set("name", name);
+
+  if (biased) {
+    const centerLng = (bbox.minLng + bbox.maxLng) / 2;
+    const centerLat = (bbox.minLat + bbox.maxLat) / 2;
+    params.set("bias", `proximity:${centerLng},${centerLat}`);
+  }
 
   return `${GEOAPIFY_URL}?${params.toString()}`;
 }
@@ -254,12 +263,12 @@ async function requestPage(
   bbox: Bbox,
   categories: string,
   offset: number,
-  name?: string,
+  biased: boolean,
 ): Promise<GeoapifyResponse> {
   let response: Response;
 
   try {
-    response = await fetch(buildUrl(bbox, categories, offset, name), {
+    response = await fetch(buildUrl(bbox, categories, offset, biased), {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(GEOAPIFY_REQUEST_TIMEOUT_MS),
     });
@@ -322,6 +331,7 @@ export async function fetchPoisForBbox(bbox: Bbox): Promise<SourcePoi[]> {
       bbox,
       REQUEST_CATEGORIES,
       page * GEOAPIFY_PAGE_SIZE,
+      false,
     );
     const features = response.features ?? [];
 
@@ -370,7 +380,7 @@ export async function fetchPlacesForType(
       bbox,
       categories,
       page * GEOAPIFY_PAGE_SIZE,
-      source.nameQuery,
+      Boolean(source.matchTerms),
     );
     const features = response.features ?? [];
 
@@ -380,6 +390,17 @@ export async function fetchPlacesForType(
 
       const [lng, lat] = point;
       const properties = feature.properties ?? {};
+      if (
+        source.matchTerms &&
+        !matchesPlaceTerms(
+          properties.name,
+          placeCategories(properties.categories),
+          source.matchTerms,
+        )
+      ) {
+        continue;
+      }
+
       const placeId = properties.place_id
         ? `geoapify/${properties.place_id}`
         : `geoapify/${lng.toFixed(6)},${lat.toFixed(6)}`;

@@ -42,7 +42,7 @@ describe("business type mappings", () => {
     expect(source.id).toMatch(/^custom:/);
     expect(source.geoapifyCategories).toContain("commercial.pet");
     expect(source.osmTags).toContainEqual({ key: "shop", value: "pet" });
-    expect(source.nameQuery).toBeUndefined();
+    expect(source.matchTerms).toBeUndefined();
   });
 
   test("maps stationery shops to the stationery category", () => {
@@ -53,15 +53,34 @@ describe("business type mappings", () => {
       key: "shop",
       value: "stationery",
     });
-    expect(source.nameQuery).toBeUndefined();
+    expect(source.matchTerms).toBeUndefined();
   });
 
-  test("falls back to a name search for unknown custom labels", () => {
+  test("uses broad category matching for unknown custom labels", () => {
     const source = customBusinessSource("Board game cafe");
 
-    expect(source.nameQuery).toBe("Board game cafe");
+    expect(source.matchTerms).toEqual(["board", "game", "cafe"]);
     expect(source.osmTags).toEqual([]);
     expect(source.geoapifyCategories).toContain("commercial");
+  });
+
+  test("finds wellness spas through category matching without adding a preset", () => {
+    const source = customBusinessSource("Spa");
+
+    expect(source.matchTerms).toEqual(["spa"]);
+    expect(source.geoapifyCategories).toContain("leisure");
+    expect(source.geoapifyCategories).toContain("service");
+    expect(
+      BUSINESS_TYPE_OPTIONS.some((option) => String(option.id) === "spa"),
+    ).toBe(false);
+  });
+
+  test("ignores generic business words in custom labels", () => {
+    expect(customBusinessSource("Coffee shop").matchTerms).toEqual(["coffee"]);
+    expect(customBusinessSource("New business").matchTerms).toEqual([
+      "new",
+      "business",
+    ]);
   });
 
   test("keeps custom cache keys distinct and rejects empty labels", () => {

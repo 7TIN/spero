@@ -180,6 +180,15 @@ function getDatabase(): Database {
     writeMeta(db, "cache_version", CACHE_VERSION);
   }
 
+  // Custom-label matching changed from a strict name filter to category/name
+  // matches. Drop only custom competitor tiles so presets and POIs stay cached.
+  const customMatchVersion = readMeta(db, "custom_match_version");
+  if (customMatchVersion !== "2") {
+    db.exec("DELETE FROM competitors WHERE type LIKE 'custom:%'");
+    db.exec("DELETE FROM competitor_tiles WHERE type LIKE 'custom:%'");
+    writeMeta(db, "custom_match_version", "2");
+  }
+
   database = db;
   return db;
 }

@@ -11,6 +11,7 @@ import {
   OVERPASS_URLS,
   OVERPASS_USER_AGENT,
 } from "../config/overpass";
+import { matchesPlaceTerms } from "../lib/place-match";
 import type { PlaceDetails, SourcePlace, SourcePoi } from "./poi-types";
 
 /** Kept as an alias so existing imports keep reading naturally. */
@@ -45,7 +46,7 @@ const KEY_PATTERN =
 const VALUE_PATTERN =
   "^(college|university|school|hospital|clinic|bus_station|marketplace|place_of_worship|bank|townhall|cinema|theatre|restaurant|cafe|fast_food|station|mall|supermarket|hotel|guest_house|government)$";
 
-/** Business-like tags considered by a free-text custom business search. */
+/** Business-like tags used for broad custom-business searches. */
 const CUSTOM_NAME_KEYS = [
   "shop",
   "amenity",
@@ -56,10 +57,6 @@ const CUSTOM_NAME_KEYS = [
   "craft",
   "club",
 ];
-
-function escapeOverpassRegex(value: string): string {
-  return value.replace(/[\\^$.*+?()[\]{}|"]/g, "\\$&");
-}
 
 interface OverpassElement {
   type: "node" | "way" | "relation";
@@ -112,6 +109,13 @@ function pickRawCategory(tags: Record<string, string>): string | null {
   }
 
   return null;
+}
+
+/** Business tags that can describe a custom category search. */
+function customTagText(tags: Record<string, string>): string {
+  return CUSTOM_NAME_KEYS.map((key) => tags[key])
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
 }
 
 function pickAddress(tags: Record<string, string>): string | null {
@@ -212,11 +216,12 @@ function buildQuery(bbox: Bbox): string {
 function buildTypeQuery(bbox: Bbox, source: BusinessTypeSource): string {
   let selectors: string;
 
-  if (source.nameQuery) {
-    const namePattern = escapeOverpassRegex(source.nameQuery);
+  if (source.matchTerms?.length) {
+    // Fetch every business-like place in the area and filter locally. Searching
+    // only for names that contain the label misses category matches such as
+    // "spa" being tagged as leisure=spa under a different business name.
     selectors = CUSTOM_NAME_KEYS.map(
-      (key) =>
-        `nwr["${key}"]["name"~"${namePattern}",i]${bboxClause(bbox)};`,
+      (key) => `nwr["${key}"]${bboxClause(bbox)};`,
     ).join("\n");
   } else {
     selectors = source.osmTags
@@ -277,15 +282,15 @@ function parsePlaceElements(
     if (!element.tags) continue;
 
     const name = firstValue(element.tags.name, element.tags["name:en"]);
-    const matches =
-      source.osmTags.length > 0
-        ? source.osmTags.some(
-            (tag) => element.tags?.[tag.key] === tag.value,
-          )
-        : Boolean(
-            source.nameQuery &&
-              name?.toLowerCase().includes(source.nameQuery.toLowerCase()),
-          );
+    const matches = source.matchTerms
+      ? matchesPlaceTerms(
+          name,
+          [customTagText(element.tags)],
+          source.matchTerms,
+        )
+      : source.osmTags.some(
+          (tag) => element.tags?.[tag.key] === tag.value,
+        );
     if (!matches) continue;
 
     const point = coordinates(element);

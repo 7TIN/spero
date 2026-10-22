@@ -67,13 +67,15 @@ cp core/.env.example core/.env
 - The cache lives in `core/data/tiles.sqlite` (gitignored). The map is split into
   0.05° tiles reused for 30 days, so panning does not spend credits. Crowd POIs
   and each competitor business type have separate tile sets. A cold crowd
-  refresh costs roughly 26–51 credits (500–1,000 places); a competitor refresh
-  usually costs far less because it asks for one category.
+  refresh costs roughly 26–51 credits (500–1,000 places); a preset competitor
+  refresh usually costs far less because it asks for one category, while a
+  custom-label search uses the broad business categories.
 - The left panel list and the map dots follow the **Places** switches on the
   right. Enabling only hospital, for example, lists and draws only hospitals.
 - **Compare with** offers the preset business types plus **Create new…** for any
   user-entered business. Common labels such as pet store or bookstore map to
-  provider categories; unknown labels fall back to a provider name search.
+  provider categories; unknown labels search the broad business categories and
+  keep places whose name or categories match the label.
 - `/health` reports today's estimated Geoapify credits and the free-plan limit.
 - Switching providers or changing the cached place shape clears the cache
   automatically, so results from different providers are never mixed.
