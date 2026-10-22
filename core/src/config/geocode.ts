@@ -12,7 +12,7 @@ export const NOMINATIM_MIN_INTERVAL_MS = 1_000;
 
 export const NOMINATIM_TIMEOUT_MS = 10_000;
 
-/** Cache identical searches briefly; this is not an autocomplete feed. */
+/** Cache identical searches briefly; autocomplete repeats prefixes often. */
 export const GEOCODE_CACHE_TTL_MS = 10 * 60 * 1_000;
 
 export const GEOCODE_CACHE_MAX_ENTRIES = 100;

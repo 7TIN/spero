@@ -255,9 +255,9 @@ async function fetchNominatim(
 }
 
 /**
- * Search for an address, city, neighbourhood, or landmark. Searches are
- * explicit user actions, not autocomplete, so public Nominatim's one-request-
- * per-second policy is respected.
+ * Search for an address, city, neighbourhood, or landmark. The web client
+ * debounces and spaces autocomplete queries, and this service also enforces
+ * public Nominatim's one-request-per-second policy.
  */
 async function searchPlacesOnce(
   query: string,

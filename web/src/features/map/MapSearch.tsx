@@ -2,12 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { GeocodeResult } from "@spero/shared";
 import { Loader2, MapPin, Search, X } from "lucide-react";
+import { useDebouncedRateLimitedValue } from "../../lib/use-debounced-rate-limited-value";
 import { cn } from "../../lib/utils";
 import { fetchGeocode } from "./api";
 
 interface MapSearchProps {
   onSelect: (result: GeocodeResult) => void;
 }
+
+/**
+ * Wait for a short pause in typing, then keep searches at least one second
+ * apart. Nominatim's public endpoint asks clients for one request per second,
+ * and the API already caches repeated queries.
+ */
+const SEARCH_DEBOUNCE_MS = 500;
+const SEARCH_MIN_INTERVAL_MS = 1_000;
 
 function humanizeCategory(value: string | null): string | null {
   if (!value) return null;
@@ -18,28 +27,38 @@ function humanizeCategory(value: string | null): string | null {
 }
 
 /**
- * Explicit search rather than autocomplete: Nominatim's public endpoint asks
- * clients to keep searches user-triggered, so the query only runs on submit.
+ * Search-as-you-type with a debounced, rate-limited query. Submitting is still
+ * supported for keyboard users, and choosing a result still closes the panel.
  */
 export function MapSearch({ onSelect }: MapSearchProps) {
   const [query, setQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const trimmedQuery = query.trim();
+  const searchQuery = useDebouncedRateLimitedValue(
+    trimmedQuery,
+    SEARCH_DEBOUNCE_MS,
+    SEARCH_MIN_INTERVAL_MS,
+  );
+  const upToDate = searchQuery === trimmedQuery;
+  const waitingForQuery = trimmedQuery.length >= 2 && !upToDate;
+  const showPanel = open && trimmedQuery.length >= 2;
+
   const search = useQuery({
-    queryKey: ["geocode", submittedQuery],
-    queryFn: ({ signal }) => fetchGeocode({ query: submittedQuery, signal }),
-    enabled: submittedQuery.length >= 2,
+    queryKey: ["geocode", searchQuery],
+    queryFn: ({ signal }) => fetchGeocode({ query: searchQuery, signal }),
+    enabled: showPanel && upToDate && searchQuery.length >= 2,
     staleTime: 10 * 60_000,
     retry: false,
     refetchOnWindowFocus: false,
   });
 
-  const results = search.data?.results ?? [];
-  const showPanel = open && submittedQuery.length >= 2;
+  const results = upToDate ? (search.data?.results ?? []) : [];
+  const loading = waitingForQuery || (upToDate && search.isFetching);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -56,19 +75,9 @@ export function MapSearch({ onSelect }: MapSearchProps) {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
-  function submit() {
-    const next = query.trim();
-    if (next.length < 2) return;
-
-    setSubmittedQuery(next);
-    setActiveIndex(-1);
-    setOpen(true);
-  }
-
   function choose(result: GeocodeResult) {
-    // Keep the submitted query key intact so choosing a result does not fire a
-    // second Nominatim request for the result's short name.
     setQuery(result.name);
+    setSelectedQuery(result.name);
     setOpen(false);
     setActiveIndex(-1);
     onSelect(result);
@@ -76,7 +85,7 @@ export function MapSearch({ onSelect }: MapSearchProps) {
 
   function clear() {
     setQuery("");
-    setSubmittedQuery("");
+    setSelectedQuery(null);
     setOpen(false);
     setActiveIndex(-1);
     inputRef.current?.focus();
@@ -95,7 +104,7 @@ export function MapSearch({ onSelect }: MapSearchProps) {
             choose(results[activeIndex]);
             return;
           }
-          submit();
+          if (trimmedQuery.length >= 2) setOpen(true);
         }}
       >
         <div className="relative">
@@ -106,14 +115,12 @@ export function MapSearch({ onSelect }: MapSearchProps) {
             onChange={(event) => {
               const value = event.target.value;
               setQuery(value);
-              if (value.trim().length < 2) setSubmittedQuery("");
-              if (value.trim() !== submittedQuery) {
-                setOpen(false);
-                setActiveIndex(-1);
-              }
+              setSelectedQuery(null);
+              setActiveIndex(-1);
+              setOpen(value.trim().length >= 2);
             }}
             onFocus={() => {
-              if (query.trim() === submittedQuery && submittedQuery.length >= 2) {
+              if (trimmedQuery.length >= 2 && trimmedQuery !== selectedQuery) {
                 setOpen(true);
               }
             }}
@@ -141,6 +148,7 @@ export function MapSearch({ onSelect }: MapSearchProps) {
             aria-controls="map-search-results"
             autoComplete="off"
             spellCheck={false}
+            maxLength={160}
             className="h-10 w-full rounded-lg border bg-card pr-10 pl-9 text-sm text-foreground shadow-lg outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
           />
           {query.length > 0 && (
@@ -153,7 +161,7 @@ export function MapSearch({ onSelect }: MapSearchProps) {
               <X className="size-3.5" />
             </button>
           )}
-          {search.isFetching && (
+          {loading && (
             <Loader2 className="absolute top-1/2 right-9 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
           )}
         </div>
@@ -164,14 +172,14 @@ export function MapSearch({ onSelect }: MapSearchProps) {
           id="map-search-results"
           className="mt-1.5 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-xl"
         >
-          {search.isFetching && results.length === 0 && (
+          {loading && results.length === 0 && (
             <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" />
               Searching the map…
             </div>
           )}
 
-          {search.isError && (
+          {upToDate && search.isError && (
             <p className="px-3 py-3 text-xs text-destructive">
               {search.error instanceof Error
                 ? search.error.message
@@ -179,7 +187,8 @@ export function MapSearch({ onSelect }: MapSearchProps) {
             </p>
           )}
 
-          {!search.isFetching &&
+          {!loading &&
+            upToDate &&
             !search.isError &&
             search.isFetched &&
             results.length === 0 && (
