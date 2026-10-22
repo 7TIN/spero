@@ -58,6 +58,7 @@ interface CellDetailPanelProps {
   competitorsFetching: boolean;
   competitorsError: Error | null;
   focusedPlaceId: string | null;
+  onCompetitorSelect: (placeId: string) => void;
   pinnedCells: PinnedCell[];
   selectedPinId: string | null;
   pinned: boolean;
@@ -109,6 +110,7 @@ interface CompetitorSectionProps {
   fetching: boolean;
   error: Error | null;
   focusedPlaceId: string | null;
+  onSelectPlace: (placeId: string) => void;
 }
 
 function CompetitorSection({
@@ -120,6 +122,7 @@ function CompetitorSection({
   fetching,
   error,
   focusedPlaceId,
+  onSelectPlace,
 }: CompetitorSectionProps) {
   const isCustom = option.id === CUSTOM_BUSINESS_TYPE;
   const noun = isCustom
@@ -165,6 +168,7 @@ function CompetitorSection({
                 icon={businessTypeIcon(place.type)}
                 accentColor={COMPETITOR_COLOR}
                 highlighted={place.id === focusedPlaceId}
+                onSelect={() => onSelectPlace(place.id)}
               />
             ))}
           </div>
@@ -234,6 +238,7 @@ export function CellDetailPanel({
   competitorsFetching,
   competitorsError,
   focusedPlaceId,
+  onCompetitorSelect,
   pinnedCells,
   selectedPinId,
   pinned,
@@ -603,6 +608,7 @@ export function CellDetailPanel({
               fetching={competitorsFetching}
               error={competitorsError}
               focusedPlaceId={focusedPlaceId}
+              onSelectPlace={onCompetitorSelect}
             />
           </CardContent>
         ) : (
@@ -631,6 +637,7 @@ export function CellDetailPanel({
               fetching={competitorsFetching}
               error={competitorsError}
               focusedPlaceId={focusedPlaceId}
+              onSelectPlace={onCompetitorSelect}
             />
           )}
 

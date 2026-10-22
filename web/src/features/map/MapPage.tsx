@@ -430,6 +430,7 @@ export function MapPage({ isDark, onToggleTheme }: MapPageProps) {
         competitors.error instanceof Error ? competitors.error : null
       }
       focusedPlaceId={focusedPlaceId}
+      onCompetitorSelect={handleCompetitorSelect}
       pinnedCells={pinnedCells}
       selectedPinId={selectedPinId}
       pinned={selectedPinned}

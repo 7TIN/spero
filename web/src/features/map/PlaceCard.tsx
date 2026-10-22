@@ -19,6 +19,8 @@ interface PlaceCardProps {
   icon: LucideIcon;
   accentColor: string;
   highlighted?: boolean;
+  /** Optional action, used by competitor cards to focus the map marker. */
+  onSelect?: () => void;
 }
 
 function humanize(value: string): string {
@@ -56,6 +58,7 @@ export function PlaceCard({
   icon: Icon,
   accentColor,
   highlighted = false,
+  onSelect,
 }: PlaceCardProps) {
   const name = place.name?.trim() || "Unnamed place";
   const category = categoryLabel(place.rawCategory);
@@ -66,8 +69,34 @@ export function PlaceCard({
   return (
     <article
       id={`place-card-${place.id}`}
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      aria-pressed={onSelect ? highlighted : undefined}
+      onClick={
+        onSelect
+          ? (event) => {
+              const target = event.target;
+              if (target instanceof Element && target.closest("a, button")) {
+                return;
+              }
+              onSelect();
+            }
+          : undefined
+      }
+      onKeyDown={
+        onSelect
+          ? (event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              onSelect();
+            }
+          : undefined
+      }
       className={cn(
         "rounded-md border bg-card p-2 text-xs shadow-ace",
+        onSelect &&
+          "cursor-pointer transition-colors hover:border-fuchsia-400/60 focus-visible:ring-2 focus-visible:ring-fuchsia-500/70 focus-visible:outline-none",
         highlighted && "ring-2 ring-fuchsia-500/70",
       )}
     >
